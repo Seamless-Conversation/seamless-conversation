@@ -26,6 +26,18 @@ Install all required Python packages using pip:
 pip install -r requirements.txt
 ```
 
+Install PortAudio
+
+- macOS:
+    ```
+    brew install portaudio
+    ```
+
+- Debian/Ununtu:
+    ```
+    sudo apt-get install libportaudio2
+    ```
+
 ### 3. Set up environment variables
 
 Make sure you have your OpenAI API key set up as an environment variable:
