@@ -10,7 +10,7 @@ def callback(indata, frames, time, status):
         print(status, file=sys.stderr)
     q.put(bytes(indata))
 
-def transcribe_live(model_path="../models/vosk-model-en-us-0.22"):
+def transcribe_live(model_path="models/vosk-model-en-us-0.22"):
     if not os.path.exists(model_path):
         print(f"Model path '{model_path}' does not exist. Download that shit.")
         sys.exit(1)
