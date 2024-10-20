@@ -1,0 +1,11 @@
+# Speech to text
+models/*
+
+# Python
+__pycache__/
+
+# MacOS
+.DS_Store
+
+# IntelliJ
+.idea
