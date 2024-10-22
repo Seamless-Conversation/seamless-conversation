@@ -5,6 +5,7 @@ import vosk
 import sounddevice as sd
 from queue import Queue
 from threading import Thread, Event
+import logging
 
 class SpeechRecognition:
     def __init__(self, shared_queue, model_path):
@@ -19,7 +20,7 @@ class SpeechRecognition:
 
     def _validate_model_path(self, model_path):
         if not os.path.exists(model_path):
-            print(f"Model path '{model_path}' does not exist. Download that shit.")
+            logging.critical(f"Model path '{model_path}' does not exist. Download that shit.")
             sys.exit(1)
 
     def start(self):
@@ -32,8 +33,8 @@ class SpeechRecognition:
             self.recognition_thread.join()
 
     def callback(self, indata, frames, time, status):
-        if status:
-            print(status, file=sys.stderr)
+        # if status:
+        #     (status, file=sys.stderr)
         self.input_queue.put(bytes(indata))
 
     def _process_recognition_result(self, data):
@@ -51,7 +52,7 @@ class SpeechRecognition:
 
         new_words = partial_text[len(self.previous_partial):].strip()
         if new_words:
-            # print(f"Current word: {new_words}")
+            logging.info(f"SpeechRecognition heard: {new_words}")
             self.shared_queue.put(new_words)
         self.previous_partial = partial_text
 
@@ -76,9 +77,9 @@ class SpeechRecognition:
             with self._setup_audio_stream():
                 self._process_audio_stream()
         except KeyboardInterrupt:
-            print("\nStopping transcription.")
+            logging.info("Stopping transcription")
         except Exception as e:
-            print(f"Error in speech recognition: {e}")
+            logging.error(f"Error in speech recognition: {e}")
 
 def main():
     shared_queue = Queue()
