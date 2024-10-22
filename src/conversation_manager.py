@@ -20,6 +20,9 @@ class ConversationManager:
         self.accumulated_text = ""
         self.accumulation_lock = Lock()
 
+        self.end_of_input_time = 0
+        self.sent_end_of_input = True
+
     def _setup_system_prompt(self, system_prompt_path):
         system_prompt = self.load_prompt("ai_prompts/system/response_decision_prompt.txt")
         debug_scene = self.load_prompt("ai_prompts/conversation_tests/whiterun_scene_test.txt")
@@ -82,13 +85,26 @@ class ConversationManager:
             try:
                 if self.queue.qsize() == 0:
                     time.sleep(0.01)
+
+                    if not self.sent_end_of_input and time.time() - self.end_of_input_time > 3:
+                        with self.processing_lock:
+                            self.sent_end_of_input = True
+                            self.update_conversation("user", "USER: [EOI]")
+                            logging.debug("EOI sent")
+                            assistant_reply = self.get_assistant_response()
+                            logging.debug(f"AI Response: {assistant_reply}")
+                            self.update_conversation("assistant", assistant_reply)
                     continue
-                time.sleep(0.01)
-                
+
+                logging.debug("New input detected")
+
+                self.end_of_input_time = time.time()
+                self.sent_end_of_input = False
+
                 with self.accumulation_lock:
-                    self.accumulated_text += self._empty_queue()
+                    self.accumulated_text += " " + self._empty_queue()
                 
-                if not self.processing_lock.locked() and self.should_process():
+                if not self.processing_lock.locked():
                     self.process_accumulated_text()
 
             except Exception as e:
@@ -108,5 +124,5 @@ class ConversationManager:
             self.update_conversation("user", "USER: " + text_to_process)
             assistant_reply = self.get_assistant_response()
             logging.debug(f"AI Response: {assistant_reply}")
-            self.update_conversation("assistant", assistant_reply)  
+            self.update_conversation("assistant", assistant_reply)
 
