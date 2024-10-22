@@ -80,9 +80,11 @@ class SpeechRecognition:
             logging.error(f"Error in speech recognition: {e}")
 
 def main():
+    logging.basicConfig(level=logging.DEBUG)
+    
     shared_queue = Queue()
     model_path = "models/vosk-model-en-us-0.22"
-    
+
     recognizer = SpeechRecognition(shared_queue, model_path)
     try:
         recognizer.start()
