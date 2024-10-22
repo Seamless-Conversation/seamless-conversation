@@ -28,6 +28,11 @@ pip install -r requirements.txt
 
 Install PortAudio
 
+- Windows:
+    ```
+    python -m pip install pyaudio
+    ```
+
 - macOS:
     ```
     brew install portaudio
