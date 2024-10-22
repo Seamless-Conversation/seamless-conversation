@@ -1,49 +1,96 @@
-import queue
-import sounddevice as sd
-import vosk
-import sys
 import os
+import sys
 import json
+import vosk
+import sounddevice as sd
+from queue import Queue
+from threading import Thread, Event
 
-def callback(indata, frames, time, status):
-    if status:
-        print(status, file=sys.stderr)
-    q.put(bytes(indata))
+class SpeechRecognition:
+    def __init__(self, shared_queue, model_path):
+        self._validate_model_path(model_path)
+        self.shared_queue = shared_queue
+        self.input_queue = Queue()
+        self.model = vosk.Model(model_path)
+        self.recognizer = vosk.KaldiRecognizer(self.model, 16000)
+        self.should_stop = Event()
+        self.recognition_thread = None
+        self.previous_partial = ""
 
-def transcribe_live(model_path="models/vosk-model-en-us-0.22"):
-    if not os.path.exists(model_path):
-        print(f"Model path '{model_path}' does not exist. Download that shit.")
-        sys.exit(1)
+    def _validate_model_path(self, model_path):
+        if not os.path.exists(model_path):
+            print(f"Model path '{model_path}' does not exist. Download that shit.")
+            sys.exit(1)
 
-    model = vosk.Model(model_path)
-    recognizer = vosk.KaldiRecognizer(model, 16000)
-    previous_partial = "" 
+    def start(self):
+        self.recognition_thread = Thread(target=self.transcribe_live)
+        self.recognition_thread.start()
 
-    with sd.RawInputStream(samplerate=16000, blocksize=8000, dtype='int16',
-                           channels=1, callback=callback):
-        print("Listening... Press Ctrl+C to stop.")
+    def stop(self):
+        self.should_stop.set()
+        if self.recognition_thread:
+            self.recognition_thread.join()
+
+    def callback(self, indata, frames, time, status):
+        if status:
+            print(status, file=sys.stderr)
+        self.input_queue.put(bytes(indata))
+
+    def _process_recognition_result(self, data):
+        if self.recognizer.AcceptWaveform(data):
+            result = self.recognizer.Result()
+            text = json.loads(result)["text"]
+            self.previous_partial = ""
+            return
+
+        partial_result = self.recognizer.PartialResult()
+        partial_text = json.loads(partial_result)["partial"]
+        
+        if not partial_text or partial_text == self.previous_partial:
+            return
+
+        new_words = partial_text[len(self.previous_partial):].strip()
+        if new_words:
+            # print(f"Current word: {new_words}")
+            self.shared_queue.put(new_words)
+        self.previous_partial = partial_text
+
+    def _setup_audio_stream(self):
+        return sd.RawInputStream(
+            samplerate=16000,
+            blocksize=8000,
+            dtype='int16',
+            channels=1,
+            callback=self.callback
+        )
+
+    def _process_audio_stream(self):
+        while True:
+            if self.should_stop.is_set():
+                break
+            data = self.input_queue.get()
+            self._process_recognition_result(data)
+
+    def transcribe_live(self):
         try:
-            while True:
-                data = q.get()
-                if recognizer.AcceptWaveform(data):
-                    result = recognizer.Result()
-                    text = json.loads(result)["text"]
-                    if text:
-                        print("You said:", text)
-                    previous_partial = ""
-                else:
-                    partial_result = recognizer.PartialResult()
-                    partial_text = json.loads(partial_result)["partial"]
-
-                    if partial_text and partial_text != previous_partial:
-
-                        new_words = partial_text[len(previous_partial):].strip()
-                        if new_words:
-                            print("Current word:", new_words)
-                        previous_partial = partial_text
+            with self._setup_audio_stream():
+                self._process_audio_stream()
         except KeyboardInterrupt:
             print("\nStopping transcription.")
+        except Exception as e:
+            print(f"Error in speech recognition: {e}")
+
+def main():
+    shared_queue = Queue()
+    model_path = "models/vosk-model-en-us-0.22"
+    
+    recognizer = SpeechRecognition(shared_queue, model_path)
+    try:
+        recognizer.start()
+        while True:
+            pass
+    except KeyboardInterrupt:
+        recognizer.stop()
 
 if __name__ == "__main__":
-    q = queue.Queue()
-    transcribe_live("models/vosk-model-en-us-0.22")
+    main()
