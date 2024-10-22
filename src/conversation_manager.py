@@ -1,24 +1,45 @@
+import time
 import os
+from threading import Thread, Event, Lock
+from queue import Queue
 from openai import OpenAI
+from typing import List, Dict
 
 class ConversationManager:
-    def __init__(self, api_key, system_prompt_path):
+    def __init__(self, api_key: str, system_prompt_path: str, shared_queue: Queue):
         self.client = OpenAI(api_key=api_key)
-        self.system_prompt = self.load_prompt(system_prompt_path)
-        self.conversation_history = [
-            {
-                "role": "system",
-                "content": self.system_prompt
-            }
-        ]
+        self._setup_system_prompt(system_prompt_path)
+        self.queue = shared_queue
+        self.should_stop = Event()
+        self.manager_thread = None
+        self.processing_lock = Lock()
+
+        self.last_process_time = 0
+        self.debounce_delay = 1.0
+        self.accumulated_text = ""
+        self.accumulation_lock = Lock()
+
+    def _setup_system_prompt(self, system_prompt_path):
+        system_prompt = self.load_prompt("ai_prompts/system/response_decision_prompt.txt")
+        debug_scene = self.load_prompt("ai_prompts/conversation_tests/whiterun_scene_test.txt")
+        self.conversation_history = [{"role": "system", "content": system_prompt + debug_scene}]
+
+    def start(self):
+        self.manager_thread = Thread(target=self.handle_should_respond)
+        self.manager_thread.start()
+
+    def stop(self):
+        self.should_stop.set()
+        if self.manager_thread:
+            self.manager_thread.join()
 
     def load_prompt(self, file_path):
-        with open(file_path, 'r') as file:
-            prompt = file.read()
+        try:
+            with open(file_path, 'r') as file:
+                prompt = file.read()
+        except IOError as ioe:
+            print(f"Error opening the prompt file {file_path}: {ioe}")
         return prompt
-
-    def get_user_input(self):
-        return input("User: ")
 
     def update_conversation(self, role, content):
         self.conversation_history.append({
@@ -27,31 +48,64 @@ class ConversationManager:
         })
 
     def get_assistant_response(self):
-        response = self.client.chat.completions.create(
-            messages=self.conversation_history,
-            model="gpt-3.5-turbo"
-        )
-        return response.choices[0].message.content.strip()
+        try:
+            response = self.client.chat.completions.create(
+                messages=self.conversation_history,
+                model="gpt-3.5-turbo"
+            )
+            return response.choices[0].message.content.strip()
+        except Exception as e:
+            print(f"Error getting assistant response: {e}")
+            return ""
+
+    def should_process(self):
+        current_time = time.time()
+        return (current_time - self.last_process_time) >= self.debounce_delay
+
+    def _empty_queue(self):
+        accumulated_text = []
+
+        while not self.queue.qsize() == 0:
+            try:
+                text = self.queue.get_nowait()
+                accumulated_text.append(text)
+                self.queue.task_done()
+            except Exception as e:
+                print(f"Error getting item form queue: {e}")
+                break
+
+        return " ".join(accumulated_text)
 
     def handle_should_respond(self):
-        user_input = self.get_user_input()
-        self.update_conversation("user", user_input)
+        while not self.should_stop.is_set():
+            try:
+                if self.queue.qsize() == 0:
+                    time.sleep(0.01)
+                    continue
+                time.sleep(0.01)
+                
+                with self.accumulation_lock:
+                    self.accumulated_text += self._empty_queue()
+                
+                if not self.processing_lock.locked() and self.should_process():
+                    self.process_accumulated_text()
 
-        assistant_reply = self.get_assistant_response()
-        print(f"Assistant: {assistant_reply}")
+            except Exception as e:
+                print(f"Error in conversation manager: {e}")
 
-        self.update_conversation("assistant", assistant_reply)
+    def process_accumulated_text(self):
+        with self.processing_lock:
+            with self.accumulation_lock:
+                if not self.accumulated_text.strip():
+                    return
+                
+                text_to_process = self.accumulated_text.strip()
+                self.accumulated_text = ""
 
-    def handle_full_response(self):
-        pass
+            print(f"[DEBUG] processing accumulated text: {text_to_process}")
+            
+            self.update_conversation("user", "USER: " + text_to_process)
+            assistant_reply = self.get_assistant_response()
+            print(f"AI Response: {assistant_reply}")
+            self.update_conversation("assistant", assistant_reply)  
 
-def main():
-    api_key = os.environ.get("OPENAI_API_KEY")
-    system_prompt_path = 'ai_prompts/system/response_decision_prompt.txt'
-    
-    conversation_manager = ConversationManager(api_key, system_prompt_path)
-    while (True):
-        conversation_manager.handle_should_respond()
-    
-if __name__ == "__main__":
-    main()
