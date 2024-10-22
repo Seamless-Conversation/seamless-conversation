@@ -33,8 +33,6 @@ class SpeechRecognition:
             self.recognition_thread.join()
 
     def callback(self, indata, frames, time, status):
-        # if status:
-        #     (status, file=sys.stderr)
         self.input_queue.put(bytes(indata))
 
     def _process_recognition_result(self, data):
