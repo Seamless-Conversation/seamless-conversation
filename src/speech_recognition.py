@@ -50,7 +50,7 @@ class SpeechRecognition:
 
         new_words = partial_text[len(self.previous_partial):].strip()
         if new_words:
-            logging.info(f"SpeechRecognition heard: {new_words}")
+            logging.debug(f"SpeechRecognition heard: {new_words}")
             self.shared_queue.put(new_words)
         self.previous_partial = partial_text
 
@@ -75,7 +75,7 @@ class SpeechRecognition:
             with self._setup_audio_stream():
                 self._process_audio_stream()
         except KeyboardInterrupt:
-            logging.debug("Stopping transcription")
+            logging.info("Stopping transcription")
         except Exception as e:
             logging.error(f"Error in speech recognition: {e}")
 
