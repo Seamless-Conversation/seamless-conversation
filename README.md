@@ -4,6 +4,14 @@ This project aims to provide a seamless experience when interacitng with an LLM 
 
 With the ability for both the AI and user to interrupt each other, the interaction more closely resembles a natural, casual conversation. Both the user and the AI can interject at any point.
 
+## Contribution
+
+The dicussion tab is open if you have any questions, suggestions or want to talk about the project.
+
+If you want to contribute to code or work on the project, fork it. Then pull request.
+
+Reach out to me at: squirrelmodeller@gmail.com or contact me on Discord: squirrelmodeller
+
 ## Setup Instructions
 
 ### Prerequisites
