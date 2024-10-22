@@ -16,6 +16,8 @@ def parse_args():
     return parser.parse_args()
 
 def setup_logging(override_log):
+    if not DEBUG:
+        return
     logging.basicConfig(level=logging.DEBUG)
     
     libraries = ("speech_recognition", "conversation_manager")
