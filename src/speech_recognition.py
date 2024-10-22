@@ -75,7 +75,7 @@ class SpeechRecognition:
             with self._setup_audio_stream():
                 self._process_audio_stream()
         except KeyboardInterrupt:
-            logging.info("Stopping transcription")
+            logging.debug("Stopping transcription")
         except Exception as e:
             logging.error(f"Error in speech recognition: {e}")
 
