@@ -1,2 +1,4 @@
 vosk
 sounddevice
+openai
+faster-whisper
