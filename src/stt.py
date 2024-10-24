@@ -7,6 +7,7 @@ from faster_whisper import WhisperModel
 import wave
 import time
 from typing import List, Optional
+from collections import deque
 
 class AudioBuffer:
     def __init__(self, sample_rate: int, channels: int, dtype=np.int16):
@@ -30,20 +31,31 @@ class AudioBuffer:
             combined = np.concatenate([self.overlap_buffer, combined])
         return combined
 
-    def update_overlap(self, audio: np.ndarray, chunk_samples: int, overlap_samples: int) -> np.ndarray:
-        self.overlap_buffer = audio[chunk_samples - overlap_samples:chunk_samples]
-        return audio[:chunk_samples]
-
-    def clear_and_store_remainder(self, audio: np.ndarray, chunk_samples: int) -> None:
-        remaining = audio[chunk_samples:]
-        self.buffer = [remaining] if len(remaining) > 0 else []
+    def clear(self) -> None:
+        self.buffer = []
+        self.overlap_buffer = np.array([], dtype=self.dtype)
 
 class AudioProcessor:
-    def __init__(self, energy_threshold: float = 0.005, min_duration: float = 0.3):
+    def __init__(self, 
+                 energy_threshold: float = 0.01,
+                 min_duration: float = 0.3,
+                 max_duration: float = 5.0):
         self.energy_threshold = energy_threshold
         self.min_duration = min_duration
+        self.max_duration = max_duration
+        self.silence_frames = deque(maxlen=5)
 
-    # Avoid "thank you", "thanks for watching" ect by analyzing the speech based on energy levels
+    def calculate_energy(self, audio_data: np.ndarray) -> float:
+        float_data = audio_data.astype(np.float32) / np.iinfo(np.int16).max
+        return np.sqrt(np.mean(float_data**2))
+
+    def is_silence(self) -> bool:
+        if len(self.silence_frames) < self.silence_frames.maxlen:
+            return False
+
+        recent_energy = np.mean(list(self.silence_frames))
+        return recent_energy < self.energy_threshold
+
     def is_speech(self, audio_data: np.ndarray, sample_rate: int) -> bool:
         float_data = audio_data.astype(np.float32) / np.iinfo(np.int16).max
         window_size = int(sample_rate * 0.02)
@@ -63,23 +75,20 @@ class AudioProcessor:
         return wav_buffer
 
 class AudioTranscriber:
-    def __init__(self, model_size: str = "tiny.en", device: str = "cpu", compute_type: str = "int8"):
+    def __init__(self, model_size: str = "tiny.en", device: str = "cpu", compute_type: str = "float32"):
         self.sample_rate = 16000
         self.channels = 1
         self.dtype = np.int16
-        self.chunk_duration = 2
+        self.chunk_duration = 0.1
         self.chunk_samples = int(self.sample_rate * self.chunk_duration)
-        
-        self.processing_chunk_duration = 3
-        self.processing_chunk_samples = int(self.sample_rate * self.processing_chunk_duration)
-        self.overlap_duration = 0.5
-        self.overlap_samples = int(self.sample_rate * self.overlap_duration)
         
         self.model = WhisperModel(model_size, device=device, compute_type=compute_type)
         self.audio_queue = queue.Queue()
         self.audio_buffer = AudioBuffer(self.sample_rate, self.channels, self.dtype)
         self.processor = AudioProcessor()
         self.is_running = False
+        self.recording = False
+        self.recording_start_time = 0
 
     def audio_callback(self, indata: np.ndarray, frames: int, time_info: dict, status: Optional[str]) -> None:
         if status:
@@ -96,27 +105,36 @@ class AudioTranscriber:
         current_time = time.strftime("%H:%M:%S")
         for segment in segments:
             text = segment.text.strip()
-            if text and len(text) > 3:
+            if text:
                 print(f"[{current_time}] Transcription: {text}")
 
     def process_audio(self) -> None:
         while self.is_running:
             try:
                 audio_chunk = self.audio_queue.get(timeout=1)
-                self.audio_buffer.add_chunk(audio_chunk)
+                current_energy = self.processor.calculate_energy(audio_chunk)
+                self.processor.silence_frames.append(current_energy)
                 
-                if self.audio_buffer.get_total_samples() < self.processing_chunk_samples:
-                    continue
+                if not self.recording and current_energy > self.processor.energy_threshold:
+                    self.recording = True
+                    self.recording_start_time = time.time()
+                    self.audio_buffer.clear()
+                
+                if self.recording:
+                    self.audio_buffer.add_chunk(audio_chunk)
+                    elapsed_time = time.time() - self.recording_start_time
                     
-                combined_audio = self.audio_buffer.get_combined_audio()
-                main_chunk = self.audio_buffer.update_overlap(
-                    combined_audio, 
-                    self.processing_chunk_samples, 
-                    self.overlap_samples
-                )
-                
-                self.process_chunk(main_chunk)
-                self.audio_buffer.clear_and_store_remainder(combined_audio, self.processing_chunk_samples)
+                    should_stop = (
+                        (elapsed_time >= self.processor.min_duration and 
+                         self.processor.is_silence()) or
+                        elapsed_time >= self.processor.max_duration
+                    )
+                    
+                    if should_stop:
+                        audio_data = self.audio_buffer.get_combined_audio()
+                        self.process_chunk(audio_data)
+                        self.audio_buffer.clear()
+                        self.recording = False
                 
             except queue.Empty:
                 continue
@@ -135,8 +153,7 @@ class AudioTranscriber:
             blocksize=self.chunk_samples,
             callback=self.audio_callback
         ):
-            print(f"Streaming started. Processing {self.processing_chunk_duration} second chunks "
-                  f"with {self.overlap_duration}s overlap.")
+            print("Streaming started. Processing audio based on voice activity detection.")
             print("Press Ctrl+C to stop.")
             
             try:
