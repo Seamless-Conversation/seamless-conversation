@@ -5,6 +5,7 @@ from conversation_manager import ConversationManager
 import time
 import logging
 import argparse
+import sys
 
 DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 
@@ -15,18 +16,24 @@ def parse_args():
 
     return parser.parse_args()
 
+class ModuleFilter(logging.Filter):
+    def filter(self, record):
+        return record.name in ['conversation_manager', 'speech_recognition']
+
 def setup_logging(override_log):
-    if not DEBUG:
+    if DEBUG or override_log:
+        logging.basicConfig(level=logging.DEBUG) 
+
+    if not override_log:
         return
-    logging.basicConfig(level=logging.DEBUG)
-    
-    libraries = ("speech_recognition", "conversation_manager")
+    root_logger = logging.getLogger()
 
-    if override_log:
-        for logger_name in logging.root.manager.loggerDict:
-            if not logger_name.startswith(libraries):
-                logging.getLogger(logger_name).setLevel(logging.WARNING)
+    filter_module = ModuleFilter()
+    root_logger.addFilter(filter_module)
 
+    for logger_name in logging.root.manager.loggerDict:
+        logger = logging.getLogger(logger_name)
+        logger.addFilter(filter_module)
 
 def main():
     args  = parse_args()

@@ -6,6 +6,8 @@ from openai import OpenAI
 from typing import List, Dict
 import logging
 
+logger = logging.getLogger(__name__)
+
 class ConversationManager:
     def __init__(self, api_key: str, system_prompt_path: str, shared_queue: Queue):
         self.client = OpenAI(api_key=api_key)
@@ -42,7 +44,7 @@ class ConversationManager:
             with open(file_path, 'r') as file:
                 prompt = file.read()
         except IOError as ioe:
-            logging.error(f"Error opening the prompt file {file_path}: {ioe}")
+            logger.error(f"Error opening the prompt file {file_path}: {ioe}")
         return prompt
 
     def update_conversation(self, role, content):
@@ -59,7 +61,7 @@ class ConversationManager:
             )
             return response.choices[0].message.content.strip()
         except Exception as e:
-            logging.error(f"Error getting assistant response: {e}")
+            logger.error(f"Error getting assistant response: {e}")
             return ""
 
     def should_process(self):
@@ -75,7 +77,7 @@ class ConversationManager:
                 accumulated_text.append(text)
                 self.queue.task_done()
             except Exception as e:
-                logging.error(f"Error getting item form queue: {e}")
+                logger.error(f"Error getting item form queue: {e}")
                 break
 
         return " ".join(accumulated_text)
@@ -90,13 +92,11 @@ class ConversationManager:
                         with self.processing_lock:
                             self.sent_end_of_input = True
                             self.update_conversation("user", "USER: [EOI]")
-                            logging.debug("EOI sent")
+                            logger.debug("EOI sent")
                             assistant_reply = self.get_assistant_response()
-                            logging.debug(f"AI Response: {assistant_reply}")
+                            logger.debug(f"AI Response: {assistant_reply}")
                             self.update_conversation("assistant", assistant_reply)
                     continue
-
-                logging.debug("New input detected")
 
                 self.end_of_input_time = time.time()
                 self.sent_end_of_input = False
@@ -108,7 +108,7 @@ class ConversationManager:
                     self.process_accumulated_text()
 
             except Exception as e:
-                logging.error(f"Error in conversation manager: {e}")
+                logger.error(f"Error in conversation manager: {e}")
 
     def process_accumulated_text(self):
         with self.processing_lock:
@@ -119,10 +119,10 @@ class ConversationManager:
                 text_to_process = self.accumulated_text.strip()
                 self.accumulated_text = ""
 
-            logging.debug(f"processing accumulated text: {text_to_process}")
+            logger.debug(f"processing accumulated text: {text_to_process}")
 
             self.update_conversation("user", "USER: " + text_to_process)
             assistant_reply = self.get_assistant_response()
-            logging.debug(f"AI Response: {assistant_reply}")
+            logger.debug(f"AI Response: {assistant_reply}")
             self.update_conversation("assistant", assistant_reply)
 

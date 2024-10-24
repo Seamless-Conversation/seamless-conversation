@@ -7,6 +7,8 @@ from queue import Queue
 from threading import Thread, Event
 import logging
 
+logger = logging.getLogger(__name__)
+
 class SpeechRecognition:
     def __init__(self, shared_queue, model_path):
         self._validate_model_path(model_path)
@@ -20,7 +22,7 @@ class SpeechRecognition:
 
     def _validate_model_path(self, model_path):
         if not os.path.exists(model_path):
-            logging.critical(f"Model path '{model_path}' does not exist. Download that shit.")
+            logger.critical(f"Model path '{model_path}' does not exist. Download that shit.")
             sys.exit(1)
 
     def start(self):
@@ -50,7 +52,7 @@ class SpeechRecognition:
 
         new_words = partial_text[len(self.previous_partial):].strip()
         if new_words:
-            logging.debug(f"SpeechRecognition heard: {new_words}")
+            logger.debug(f"SpeechRecognition heard: {new_words}")
             self.shared_queue.put(new_words)
         self.previous_partial = partial_text
 
@@ -75,9 +77,9 @@ class SpeechRecognition:
             with self._setup_audio_stream():
                 self._process_audio_stream()
         except KeyboardInterrupt:
-            logging.info("Stopping transcription")
+            logger.info("Stopping transcription")
         except Exception as e:
-            logging.error(f"Error in speech recognition: {e}")
+            logger.error(f"Error in speech recognition: {e}")
 
 def main():
     logging.basicConfig(level=logging.DEBUG)
