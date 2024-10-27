@@ -1,16 +1,17 @@
 import time
 import os
+from llm.base import LLMProvider
 from threading import Thread, Event, Lock
 from queue import Queue
-from openai import OpenAI
 from typing import List, Dict
 import logging
 
 logger = logging.getLogger(__name__)
 
 class ConversationManager:
-    def __init__(self, api_key: str, system_prompt_path: str, shared_queue: Queue):
-        self.client = OpenAI(api_key=api_key)
+    def __init__(self, llm_provider: LLMProvider, system_prompt_path: str, shared_queue: Queue):
+        self.llm = llm_provider
+
         self._setup_system_prompt(system_prompt_path)
         self.queue = shared_queue
         self.should_stop = Event()
@@ -53,17 +54,6 @@ class ConversationManager:
             "content": content
         })
 
-    def get_assistant_response(self):
-        try:
-            response = self.client.chat.completions.create(
-                messages=self.conversation_history,
-                model="gpt-3.5-turbo"
-            )
-            return response.choices[0].message.content.strip()
-        except Exception as e:
-            logger.error(f"Error getting assistant response: {e}")
-            return ""
-
     def should_process(self):
         current_time = time.time()
         return (current_time - self.last_process_time) >= self.debounce_delay
@@ -93,7 +83,7 @@ class ConversationManager:
                             self.sent_end_of_input = True
                             self.update_conversation("user", "USER: [EOI]")
                             logger.debug("EOI sent")
-                            assistant_reply = self.get_assistant_response()
+                            assistant_reply = self.llm.generate_response(self.conversation_history)
                             logger.debug(f"AI Response: {assistant_reply}")
                             self.update_conversation("assistant", assistant_reply)
                     continue
@@ -122,7 +112,6 @@ class ConversationManager:
             logger.debug(f"processing accumulated text: {text_to_process}")
 
             self.update_conversation("user", "USER: " + text_to_process)
-            assistant_reply = self.get_assistant_response()
+            assistant_reply = self.llm.generate_response(self.conversation_history)
             logger.debug(f"AI Response: {assistant_reply}")
             self.update_conversation("assistant", assistant_reply)
-
