@@ -1,0 +1,29 @@
+llm:
+  provider: openai
+  openai:
+    api_key: null
+    model: gpt-3.5-turbo
+    temperature: 0.7
+  llama:
+    path_to_model: /path/to/model.bin
+    max_tokens: 2048
+    dtype: 'int16'
+    channels: 1
+stt:
+  provider: vosk
+  vosk:
+    path_to_model: models/vosk-model-en-us-0.22
+    blocksize: 8000
+    sample_rate: 16000
+    dtype: int16
+    channels: 1
+  whisper:
+    size_model: tiny.en
+    device: cpu
+    compute_type: float32
+    energy_threshold: 0.01
+    min_duration: 0.3
+    max_duration: 5.0
+    chunk_duration: 0.1
+    sample_rate: 16000
+    channels: 1
