@@ -9,7 +9,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 class ConversationManager:
-    def __init__(self, llm_provider: LLMProvider, system_prompt_path: str, shared_queue: Queue):
+    def __init__(self, llm_provider: LLMProvider, system_prompt_path: str, shared_queue: Queue, disablellmreponse=False):
         self.llm = llm_provider
 
         self._setup_system_prompt(system_prompt_path)
@@ -25,6 +25,8 @@ class ConversationManager:
 
         self.end_of_input_time = 0
         self.sent_end_of_input = True
+
+        self.disablellmreponse = disablellmreponse
 
     def _setup_system_prompt(self, system_prompt_path):
         system_prompt = self.load_prompt("ai_prompts/system/response_decision_prompt.txt")
@@ -72,6 +74,14 @@ class ConversationManager:
 
         return " ".join(accumulated_text)
 
+    def process_user_input(self, text_to_process):
+        self.update_conversation("user", text_to_process)
+        if self.disablellmreponse:
+            return
+        assistant_reply = self.llm.generate_response(self.conversation_history)
+        logger.debug(f"AI Response: {assistant_reply}")
+        self.update_conversation("assistant", assistant_reply)        
+
     def handle_should_respond(self):
         while not self.should_stop.is_set():
             try:
@@ -81,11 +91,9 @@ class ConversationManager:
                     if not self.sent_end_of_input and time.time() - self.end_of_input_time > 3:
                         with self.processing_lock:
                             self.sent_end_of_input = True
-                            self.update_conversation("user", "USER: [EOI]")
                             logger.debug("EOI sent")
-                            assistant_reply = self.llm.generate_response(self.conversation_history)
-                            logger.debug(f"AI Response: {assistant_reply}")
-                            self.update_conversation("assistant", assistant_reply)
+                            self.process_user_input("[EOI]")
+
                     continue
 
                 self.end_of_input_time = time.time()
@@ -110,8 +118,4 @@ class ConversationManager:
                 self.accumulated_text = ""
 
             logger.debug(f"processing accumulated text: {text_to_process}")
-
-            self.update_conversation("user", "USER: " + text_to_process)
-            assistant_reply = self.llm.generate_response(self.conversation_history)
-            logger.debug(f"AI Response: {assistant_reply}")
-            self.update_conversation("assistant", assistant_reply)
+            self.process_user_input("USER: " + text_to_process)

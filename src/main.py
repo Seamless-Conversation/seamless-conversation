@@ -18,6 +18,7 @@ def parse_args():
     parser.add_argument('-overridelog', action='store_true', help='Override logging of external libraries and enable logging')
     parser.add_argument('-stt', help='Set the speech to text model')
     parser.add_argument('-llm', help='Set the large language model')
+    parser.add_argument('-disablellmreponse', action='store_true', help='Disable the computation of the LLM response. Used for debugging and testing.', default=False)
 
     return parser.parse_args()
 
@@ -58,8 +59,7 @@ def main():
 
     llm_provider.setup()
 
-    conversation_manager = ConversationManager(llm_provider, 'ai_prompts/system/response_decision_prompt.txt', shared_queue)
-
+    conversation_manager = ConversationManager(llm_provider, 'ai_prompts/system/response_decision_prompt.txt', shared_queue, args.disablellmreponse)
 
     try:
         conversation_manager.start()
