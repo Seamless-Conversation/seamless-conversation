@@ -6,6 +6,8 @@ With the ability for both the AI and user to interrupt each other, the interacti
 
 ## Contribution
 
+We have a <a href="https://discord.gg/cuYKDGAxph">Discord Server</a>.
+
 The dicussion tab is open if you have any questions, suggestions or want to talk about the project.
 
 If you want to contribute to code or work on the project, fork it. Then pull request.
