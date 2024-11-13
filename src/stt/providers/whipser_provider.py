@@ -1,55 +1,59 @@
 import io
-from queue import Queue
-import threading
 import numpy as np
-import sounddevice as sd
-from faster_whisper import WhisperModel
-import wave
-import time
 import logging
-from typing import List, Optional
+from faster_whisper import WhisperModel
+from typing import Optional, List, Tuple
 from collections import deque
-
+import time
+import wave
+from dataclasses import dataclass
 from ...config.settings import WhisperSettings
-from ..base import SpeechProvider
+from ..base_stt import BaseSTT
+from src.event.eventbus import EventBus
 
 logger = logging.getLogger(__name__)
 
-class AudioBuffer:
-    def __init__(self, sample_rate: int, channels: int, dtype=np.int16):
-        self.sample_rate = sample_rate
-        self.channels = channels
-        self.dtype = dtype
-        self.buffer: List[np.ndarray] = []
-        self.overlap_buffer = np.array([], dtype=dtype)
 
-    def add_chunk(self, chunk: np.ndarray) -> None:
-        self.buffer.append(chunk)
+@dataclass
+class TranscriptionSegment:
+    text: str
+    start_time: float
+    end_time: float
 
-    def get_total_samples(self) -> int:
-        return sum(len(chunk) for chunk in self.buffer)
-
-    def get_combined_audio(self) -> np.ndarray:
-        if not self.buffer:
-            return np.array([], dtype=self.dtype)
-        combined = np.concatenate(self.buffer)
-        if len(self.overlap_buffer) > 0:
-            combined = np.concatenate([self.overlap_buffer, combined])
-        return combined
-
-    def clear(self) -> None:
-        self.buffer = []
-        self.overlap_buffer = np.array([], dtype=self.dtype)
+class TranscriptionContext:
+    def __init__(self, max_history: int = 5):
+        self.segments: List[TranscriptionSegment] = []
+        self.last_timestamp: float = 0
+        self.max_history = max_history
+        
+    def add_segment(self, text: str, start_time: float, end_time: float):
+        self.segments.append(TranscriptionSegment(text, start_time, end_time))
+        if len(self.segments) > self.max_history:
+            self.segments.pop(0)
+        self.last_timestamp = end_time
+            
+    def get_recent_text(self) -> str:
+        return " ".join(segment.text for segment in self.segments)
 
 class AudioProcessor:
     def __init__(self, 
                  energy_threshold: float = 0.01,
-                 min_duration: float = 0.3,
-                 max_duration: float = 5.0):
+                 chunk_duration: float = 2.0,
+                 min_speech_duration: float = 0.3):
         self.energy_threshold = energy_threshold
-        self.min_duration = min_duration
-        self.max_duration = max_duration
+        self.chunk_duration = chunk_duration
+        self.min_speech_duration = min_speech_duration
         self.silence_frames = deque(maxlen=5)
+        self.recording = False
+        self.recording_start_time = 0
+        self.audio_buffer = []
+        self.chunk_buffer = []
+        self.processed_duration = 0
+        self.chunk_samples = None 
+
+    def initialize_chunk_size(self, sample_rate: int):
+        """Calculate chunk size based on desired duration and sample rate"""
+        self.chunk_samples = int(self.chunk_duration * sample_rate)
 
     def calculate_energy(self, audio_data: np.ndarray) -> float:
         float_data = audio_data.astype(np.float32) / np.iinfo(np.int16).max
@@ -58,7 +62,6 @@ class AudioProcessor:
     def is_silence(self) -> bool:
         if len(self.silence_frames) < self.silence_frames.maxlen:
             return False
-
         recent_energy = np.mean(list(self.silence_frames))
         return recent_energy < self.energy_threshold
 
@@ -67,8 +70,34 @@ class AudioProcessor:
         window_size = int(sample_rate * 0.02)
         windows = np.array_split(float_data, len(float_data) // window_size)
         energies = [np.sqrt(np.mean(window**2)) for window in windows if len(window) == window_size]
-        speech_windows = sum(1 for energy in energies if energy > self.energy_threshold)
-        return (speech_windows * 0.02) >= self.min_duration
+        speech_duration = sum(1 for energy in energies if energy > self.energy_threshold) * 0.02
+        return speech_duration >= self.min_speech_duration
+
+    def process_chunk(self, audio_chunk: np.ndarray, sample_rate: int) -> Tuple[Optional[np.ndarray], float, float]:
+        """Process an audio chunk with fixed-time intervals"""
+        if self.chunk_samples is None:
+            self.initialize_chunk_size(sample_rate)
+
+        self.chunk_buffer.extend(audio_chunk)
+
+        if len(self.chunk_buffer) >= self.chunk_samples:
+            # Extract the complete chunk
+            complete_chunk = np.array(self.chunk_buffer[:self.chunk_samples])
+            # Keep remaining samples
+            self.chunk_buffer = self.chunk_buffer[self.chunk_samples:]
+
+            current_energy = self.calculate_energy(complete_chunk)
+            self.silence_frames.append(current_energy)
+
+            chunk_start_time = self.processed_duration
+            chunk_end_time = chunk_start_time + self.chunk_duration
+            self.processed_duration = chunk_end_time
+
+            # If chunk contains speech, return it for processing
+            if self.is_speech(complete_chunk, sample_rate):
+                return complete_chunk, chunk_start_time, chunk_end_time
+
+        return None, 0, 0
 
     def create_wav_buffer(self, audio_data: np.ndarray, sample_rate: int, channels: int) -> io.BytesIO:
         wav_buffer = io.BytesIO()
@@ -80,93 +109,47 @@ class AudioProcessor:
         wav_buffer.seek(0)
         return wav_buffer
 
+class WhisperProvider(BaseSTT):
+    def __init__(self, event_bus: EventBus, config: WhisperSettings):
+        super().__init__(event_bus, config)
+        self.audio_processor = AudioProcessor(config.energy_threshold, config.chunk_duration, config.min_duration)
 
-class WhisperProvider(SpeechProvider):
-    def __init__(self, shared_queue: Queue, config: WhisperSettings):
-        self.audio_processor = AudioProcessor(
-            energy_threshold=config.energy_threshold,
-            min_duration=config.min_duration,
-            max_duration=config.max_duration
-        )
-        self.audio_buffer = AudioBuffer(
-            sample_rate=config.sample_rate,
-            channels=config.channels
-        )
-        self.audio_queue = Queue()
-        self.recording = False
-        self.recording_start_time = 0
-        super().__init__(shared_queue, config)
-
-    def _setup_provider(self) -> None:
         self.model = WhisperModel(
-            self.config.size_model,
-            device=self.config.device,
-            compute_type=self.config.compute_type
+            config.size_model,
+            device=config.device,
+            compute_type=config.compute_type
+        )
+        self.context = TranscriptionContext()
+
+    def process_audio(self, audio_data: np.ndarray) -> Optional[str]:
+        """Process a single chunk of audio data with context"""
+        complete_utterance, start_time, end_time = self.audio_processor.process_chunk(
+            audio_data, 
+            self.config.sample_rate
         )
 
-    def _setup_audio_stream(self):
-        chunk_samples = int(self.config.sample_rate * self.config.chunk_duration)
-        return sd.InputStream(
-            channels=self.config.channels,
-            samplerate=self.config.sample_rate,
-            dtype=np.int16,
-            blocksize=chunk_samples,
-            callback=self._audio_callback
-        )
+        if complete_utterance is not None:
+            if self.audio_processor.is_speech(complete_utterance, self.config.sample_rate):
+                wav_buffer = self.audio_processor.create_wav_buffer(
+                    complete_utterance,
+                    self.config.sample_rate,
+                    self.config.channels
+                )
 
-    def _audio_callback(self, indata: np.ndarray, frames: int, 
-                       time_info: dict, status: Optional[str]) -> None:
-        if status:
-            logger.debug(f"Stream callback status: {status}")
-        self.audio_queue.put(indata.copy())
+                prompt = self.context.get_recent_text()
+                segments, _ = self.model.transcribe(
+                    wav_buffer,
+                    initial_prompt=prompt if prompt else None
+                )
 
-    def _process_audio(self, audio_data: np.ndarray) -> None:
-        if not self.audio_processor.is_speech(audio_data, self.config.sample_rate):
-            return
+                text = " ".join(segment.text.strip() for segment in segments if segment.text.strip())
 
-        segments, _ = self.model.transcribe(
-            self.audio_processor.create_wav_buffer(
-                audio_data, 
-                self.config.sample_rate,
-                self.config.channels
-            )
-        )
-        
-        for segment in segments:
-            text = segment.text.strip()
-            if text:
-                self.shared_queue.put(text)
+                if text:
+                    self.context.add_segment(text, start_time, end_time)
+                    return text
 
-    def _run(self) -> None:
-        with self._setup_audio_stream():
-            while not self.should_stop.is_set():
-                try:
-                    audio_chunk = self.audio_queue.get(timeout=1)
-                    current_energy = self.audio_processor.calculate_energy(audio_chunk)
-                    self.audio_processor.silence_frames.append(current_energy)
-                    
-                    if not self.recording and current_energy > self.audio_processor.energy_threshold:
-                        self.recording = True
-                        self.recording_start_time = time.time()
-                        self.audio_buffer.clear()
-                    
-                    if self.recording:
-                        self.audio_buffer.add_chunk(audio_chunk)
-                        elapsed_time = time.time() - self.recording_start_time
-                        
-                        should_stop = (
-                            (elapsed_time >= self.audio_processor.min_duration and 
-                             self.audio_processor.is_silence()) or
-                            elapsed_time >= self.audio_processor.max_duration
-                        )
-                        
-                        if should_stop:
-                            audio_data = self.audio_buffer.get_combined_audio()
-                            self._process_audio(audio_data)
-                            self.audio_buffer.clear()
-                            self.recording = False
-                    
-                except Queue.Empty:
-                    continue
-                except Exception as e:
-                    logger.error(f"Error processing audio: {e}")
+        return None
+
+    def get_full_transcript(self) -> str:
+        """Get the complete transcript with all context"""
+        return self.context.get_recent_text()

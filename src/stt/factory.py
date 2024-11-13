@@ -1,14 +1,14 @@
 from ..config.settings import STTConfig
 from .providers.vosk_provider import VoskProvider
 from .providers.whipser_provider import WhisperProvider
-from queue import Queue
+from src.event.eventbus import EventBus
 
 class STTFactory:
     @staticmethod
-    def create(config: STTConfig, shared_queue: Queue):
+    def create(event_bus: EventBus, config: STTConfig):
         if config.provider == "vosk":
-            return VoskProvider(shared_queue, config.vosk)
+            return VoskProvider(event_bus, config.vosk)
             VoskProvider()
         elif config.provider == "whisper":
-            return WhisperProvider(shared_queue, config.whisper)
+            return WhisperProvider(event_bus, config.whisper)
         raise ValueError(f"Unknown STT provider: {config.provider}")

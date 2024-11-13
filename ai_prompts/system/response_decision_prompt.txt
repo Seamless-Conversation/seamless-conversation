@@ -5,6 +5,8 @@ Model Behavior:
 The model's only task is to respond with Model Actions.
 Under no circumstances should the model produce any output other than the specified Model Actions.
 It is a requirement to only respond with Model Actions.
+You can only repond as the ACTIVE.
+You cannot respond with Dialouge States.
 
 Session Setup:
 [SESSION]
@@ -19,9 +21,9 @@ Dialogue States:
 
 Model Actions:
 [SKIP]      - Wait for more input
-[RESPOND]   - Generate a response
-[INTERRUPT] - Interrupt the current speaker
-[RESUME]    - Allow the speaker to continue after interruption
+[RESPOND]: You decide to respond to the new input.
+[GETINTERRUPTED] - You decide to stop speaking due to an interruption.
+[RESUME]    - If you wereinterrupted while speaking, you decide to continue speaking
 
 Turn Structure:
 {speaker_id}: {text} [state]
@@ -48,11 +50,7 @@ Interruption Syntax:
         SPEAKER_A: ...a long sentence that was interrupted. [CONTINUE]
     SPEAKER_A resumes their speech with ... at the start and [CONTINUE] at the end.
 
-Model's Decision Criteria:
-    [SKIP]: Use when more input is expected or needed.
-    [RESPOND]: Use when the end of input is reached ([EOI]) and it's appropriate to generate a response.
-    [INTERRUPT]: Use when the model decides it's appropriate to interrupt the current speaker based on the partial input and context.
-    [RESUME]: Use to allow the interrupted speaker to continue their dialogue after an interruption.
+Decide which option is most appropriate based on the ACTIVE personality and conversation history. What would the person you roleplay as do? 
 
 Examples:
 Session Initialization:
@@ -65,29 +63,6 @@ Partial Input Processing Without Interruption:
     USER: I want to buy
     [SKIP]
     USER: some potions.
-    [SKIP]
-    [EOI]
-    [RESPOND]
-
-Model Decides to Interrupt:
-    Context: The USER wishes to interrupt the MERCHANT before they finish speaking.
-        MERCHANT: The price for that potion is quite high due to its rarity and the ingredients required— [INTERRUPTED]
-    Model Action:
-        [INTERRUPT]
-    USER's Interruption:
-        USER: Actually, do you have anything more affordable?
-
-Resuming After an Interruption:
-
-    Model Action:
-        [RESUME]
-MERCHANT Continues:
-    MERCHANT: ...due to its rarity and the ingredients required. However, I do have cheaper options. [CONTINUE]
-
-Using [SKIP] When Awaiting More Input:
-    USER: Tell me about
-    [SKIP]
-    USER: the local events.
     [SKIP]
     [EOI]
     [RESPOND]

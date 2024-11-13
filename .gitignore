@@ -9,3 +9,6 @@ __pycache__/
 
 # IntelliJ
 .idea
+
+# Put stuff here you wanna test with
+temp/

@@ -2,6 +2,12 @@ from pydantic import BaseModel, Field, validator
 from typing import Literal, Optional
 import os
 
+def configProviderValidation(cls, v, values, name: str):
+    if values.get('provider') == name.lower:
+        if v is None:
+            raise ValueError(f"{name} configuration required when provider is '{name.lower}'")
+    return v
+
 class OpenAISettings(BaseModel):
     api_key: Optional[str]
     model: str = "gpt-3.5-turbo"
@@ -18,22 +24,16 @@ class LLMConfig(BaseModel):
 
     @validator('openai')
     def validate_openai_config(cls, v, values):
-        if values.get('provider') == 'openai':
-            if v is None:
-                raise ValueError("OpenAI configuration required when provider is 'openai'")
-        return v
+        return configProviderValidation(cls, v, values, "OpenAI")
 
     @validator('llama')
     def validate_llama_config(cls, v, values):
-        if values.get('provider') == 'llama':
-            if v is None:
-                raise ValueError("Llama configuration required when provider is 'llama'")
-        return v
+        return configProviderValidation(cls, v, values, "OpenAI")
+
 
 class VoskSettings(BaseModel):
     path_to_model: str
     sample_rate: int
-    blocksize: int
     dtype: str
     channels: int
 
@@ -49,11 +49,9 @@ class WhisperSettings(BaseModel):
     compute_type: str
     energy_threshold: float
     min_duration: float
-    max_duration: float
     chunk_duration: float
     sample_rate: int
     channels: int
-
 
 class STTConfig(BaseModel):
     provider: Literal["vosk", "whisper"]
@@ -62,19 +60,28 @@ class STTConfig(BaseModel):
 
     @validator('vosk')
     def validate_vosk_config(cls, v, values):
-        if values.get('provider') == 'vosk' and v is None:
-            raise ValueError("Vosk configuration required when provider is 'vosk'")
-        return v
+        return configProviderValidation(cls, v, values, "OpenAI")
 
     @validator('whisper')
     def validate_whisper_config(cls, v, values):
-        if values.get('provider') == 'whisper' and v is None:
-            raise ValueError("Whisper configuration required when provider is 'whisper'")
-        return v
+        return configProviderValidation(cls, v, values, "OpenAI")
+
+
+class ElevenlabsSettings(BaseModel):
+    api_key: Optional[str]
+
+class TTSConfig(BaseModel):
+    provider: Literal["elevenlabs", "gtts"]
+    elevenlabs: Optional[ElevenlabsSettings]
+
+    @validator('elevenlabs')
+    def validate_elevenlabs_confi(cls, v, values):
+        return configProviderValidation(cls, v, values, "Elevenlabs")
 
 class AppConfig(BaseModel):
     llm: LLMConfig
     stt: STTConfig
+    tts: TTSConfig
 
     class Config:
         extra = "forbid"  # prevents additional fields

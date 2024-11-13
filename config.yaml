@@ -7,13 +7,10 @@ llm:
   llama:
     path_to_model: /path/to/model.bin
     max_tokens: 2048
-    dtype: 'int16'
-    channels: 1
 stt:
-  provider: vosk
+  provider: whisper
   vosk:
     path_to_model: models/vosk-model-en-us-0.22
-    blocksize: 8000
     sample_rate: 16000
     dtype: int16
     channels: 1
@@ -23,7 +20,10 @@ stt:
     compute_type: float32
     energy_threshold: 0.01
     min_duration: 0.3
-    max_duration: 5.0
-    chunk_duration: 0.1
+    chunk_duration: 2
     sample_rate: 16000
     channels: 1
+tts:
+  provider: elevenlabs
+  elevenlabs:
+    api_key: null

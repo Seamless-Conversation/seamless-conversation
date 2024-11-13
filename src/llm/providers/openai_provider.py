@@ -1,14 +1,16 @@
-from ..base import LLMProvider
-from ...config.settings import OpenAISettings
 from openai import OpenAI
 import logging
+from src.event.eventbus import EventBus
+from ..base_llm import BaseLLM
+from ...config.settings import OpenAISettings
 
 logger = logging.getLogger(__name__)
 
-class OpenAIProvider(LLMProvider):
-    def __init__(self, settings: OpenAISettings):
+class OpenAIProvider(BaseLLM):
+    def __init__(self, event_bus: EventBus, settings: OpenAISettings):
+        super().__init__(event_bus)
         self.settings = settings
-        self.client = None
+        self.client = OpenAI(api_key=self.settings.api_key)
 
     def setup(self):
         try:
@@ -17,10 +19,7 @@ class OpenAIProvider(LLMProvider):
             logger.error(f"Failed to initialize OpenAI client: {e}")
             raise RuntimeError("OpenAI initialization failed") from e
 
-    def generate_response(self, messages):
-        if self.client is None:
-            raise RuntimeError("OpenAI provider not properly initialized. Call setup() first.")
-        
+    def generate_response(self, messages):        
         try:
             response = self.client.chat.completions.create(
                 messages=messages,
