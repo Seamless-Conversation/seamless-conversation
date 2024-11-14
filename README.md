@@ -1,5 +1,5 @@
 # Seamless Conversation
-
+<a href=""><img align="right" src="https://github.com/user-attachments/assets/7666132e-6fa8-4c0b-acef-adee199cb0a5" width="150px"></a>
 A flexible and extensible framework for managing multi-agent conversations with support for speech recognition, text-to-speech, and language model integration.
 
 With the ability for both the AI and user to interrupt each other, the interaction more closely resembles a natural, casual conversation. Both the user and the AI can interject at any point.
