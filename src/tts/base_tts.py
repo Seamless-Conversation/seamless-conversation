@@ -4,7 +4,7 @@ import time
 from typing import Union, List, Dict, Tuple
 from abc import abstractmethod
 from ..config.settings import TTSConfig
-from src.base_component import BaseComponent
+from src.components.base_component import BaseComponent
 from src.event.eventbus import EventBus, Event
 from src.event.event_types import EventType
 from src.tts.audio_manager import AudioManager

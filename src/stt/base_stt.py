@@ -1,6 +1,6 @@
 from src.event.eventbus import EventBus, Event
 from src.event.event_types import EventType
-from ..base_component import BaseComponent
+from src.components.base_component import BaseComponent
 from ..config.settings import STTConfig
 from .audio_input import AudioConfig, AudioInput
 from abc import ABC, abstractmethod
