@@ -19,7 +19,7 @@ This system enables natural conversations between human users and AI agents, sup
 
 ### Prerequisites
 
-- Python 3.8 or higher
+- Python >= 3.9, < 3.12
 
 ### 1. Clone the repository
 
@@ -29,9 +29,17 @@ cd seamless-conversation
 ```
 
 ### 2. Install dependencies
-Install all required Python packages using pip:
+First setup the python venv. (3.10 as an example):
 ```
-pip install -r requirements.txt
+python3.10 -m venv seampyconvo
+```
+Activate the python environment:
+```
+seampyconvo/bin/activate
+```
+Install all required Python packages using pip.
+```
+python -m pip install -r requirements.txt
 ```
 
 Install PortAudio
