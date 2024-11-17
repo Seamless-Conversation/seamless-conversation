@@ -70,9 +70,18 @@ class STTConfig(BaseModel):
 class ElevenlabsSettings(BaseModel):
     api_key: Optional[str]
 
+class XttsSettings(BaseModel):
+    model: str
+    vocoder_path: Optional[str]
+    output_sample_rate: Optional[int]
+    min_word_duration: float
+    word_gap: float
+    sample_rate: int
+
 class TTSConfig(BaseModel):
-    provider: Literal["elevenlabs", "gtts"]
+    provider: Literal["elevenlabs", "xtts"]
     elevenlabs: Optional[ElevenlabsSettings]
+    xtts: Optional[XttsSettings]
 
     @validator('elevenlabs')
     def validate_elevenlabs_confi(cls, v, values):

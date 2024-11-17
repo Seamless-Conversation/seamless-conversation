@@ -1,6 +1,6 @@
 from ..config.settings import TTSConfig
 from .providers.elevenlabs_provider import ElevenLabsTTSProvider
-from .providers.gtts_provider import GttsProvider
+from .providers.xtts_provider import XttsProvider
 from src.event.eventbus import EventBus
 import os
 
@@ -14,6 +14,6 @@ class TTSFactory:
                 config.elevenlabs.api_key = api_key
 
             return ElevenLabsTTSProvider(event_bus, config.elevenlabs)
-        elif config.provider == "gtts":
-            return GttsProvider(event_bus)
+        elif config.provider == "xtts":
+            return XttsProvider(event_bus, config.xtts)
         raise ValueError(f"Unkown TTS provider: {config.provider}")

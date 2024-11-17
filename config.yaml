@@ -24,6 +24,13 @@ stt:
     sample_rate: 16000
     channels: 1
 tts:
-  provider: elevenlabs
+  provider: xtts
   elevenlabs:
     api_key: null
+  xtts:
+    model: tts_models/en/ljspeech/tacotron2-DDC
+    vocoder_path: vocoder_models/en/ljspeech/hifigan_v2
+    output_sample_rate: null
+    min_word_duration: 0.1
+    word_gap: 0.05
+    sample_rate: 16000
