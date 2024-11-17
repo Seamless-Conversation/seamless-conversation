@@ -3,3 +3,6 @@ sounddevice
 openai
 faster-whisper
 numpy
+pydub
+pyaudio
+coqui-tts
