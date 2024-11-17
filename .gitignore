@@ -12,3 +12,7 @@ __pycache__/
 
 # Put stuff here you wanna test with
 temp/
+test_output/
+
+# Virtual python venv
+seampyconvo/
