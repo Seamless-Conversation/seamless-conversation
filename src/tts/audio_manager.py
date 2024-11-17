@@ -43,12 +43,35 @@ class AudioPlayer:
 
     def _init_wave_file(self, audio_data: bytes) -> wave.Wave_read:
         """Convert MP3 data to WAV format"""
+        byte_format = self._detect_audio_format(audio_data)
+
         audio_stream = io.BytesIO(audio_data)
-        audio = AudioSegment.from_mp3(audio_stream)
-        wav_io = io.BytesIO()
-        audio.export(wav_io, format="wav")
-        wav_io.seek(0)
-        return wave.open(wav_io, 'rb')
+
+        if byte_format == "mp3":
+            audio = AudioSegment.from_mp3(audio_stream)
+            wav_io = io.BytesIO()
+            audio.export(wav_io, format="wav")
+            wav_io.seek(0)
+            return wave.open(wav_io, 'rb')
+
+        return wave.open(audio_stream, 'rb')
+
+
+    def _detect_audio_format(self, audio_data: bytes) -> str:
+        """Detect the format of the input audio data (mp3 or wav)"""
+        try:
+            audio_stream = io.BytesIO(audio_data)
+            header = audio_stream.read(4)
+            audio_stream.seek(0)
+            
+            if header.startswith(b'\xff\xfb'):
+                return "mp3"
+            elif header.startswith(b'RIFF'):
+                return "wav"
+            else:
+                raise ValueError("Unknown audio format")
+        except Exception:
+            raise ValueError("Failed to detect audio format")
 
     def _publish_snippet(self, is_final: bool = False) -> None:
         if 'context' not in self.event.data:
