@@ -57,6 +57,9 @@ def main():
     if (args.tts):
         config.tts.provider = args.tts
 
+    # Enable initial logging, we need a better solution here.
+    setup_logging(args.overridelog)
+
     event_bus = EventBus()
 
     dialogue_manager = DialogueManager(event_bus)
@@ -89,6 +92,7 @@ def main():
         logging.info("Recieved KeyboardInterrupt, stopping.")
         stt_provider.stop()
         llm_provider.stop()
+        tts_provider.stop()
         event_bus.shutdown()
 
 if __name__ == "__main__":
