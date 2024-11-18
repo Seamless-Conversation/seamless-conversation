@@ -1,8 +1,16 @@
 # Seamless Conversation
-<a href=""><img align="right" src="https://github.com/user-attachments/assets/7666132e-6fa8-4c0b-acef-adee199cb0a5" width="150px"></a>
+<a><img align="right" src="https://github.com/user-attachments/assets/c1c4ee06-3720-464d-ac99-f6a3d17f9b39" width="150px"></a>
 A flexible and extensible framework for managing multi-agent conversations with support for speech recognition, text-to-speech, and language model integration.
 
 With the ability for both the AI and user to interrupt each other, the interaction more closely resembles a natural, casual conversation. Both the user and the AI can interject at any point.
+
+<div>
+    <p align="center">
+        <a href="https://github.com/SquirrelModeller/seamless-conversation/issues"> <img src="https://img.shields.io/github/issues/SquirrelModeller/yandroid"></a>
+        <a href="https://github.com/SquirrelModeller/seamless-conversation/pulls"> <img src="https://img.shields.io/github/issues-pr/SquirrelModeller/yandroid"></a>
+        <a href="https://discord.gg/cuYKDGAxph"> <img src="https://img.shields.io/discord/1300460327628046376?style=flat&logo=discord&logoColor=fff&color=404eed" alt="discord"></a>
+    </p>
+</div>
 
 ## Overview
 
