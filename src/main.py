@@ -64,8 +64,6 @@ def main():
 
     event_bus = EventBus()
 
-    dialogue_manager = DialogueManager(event_bus)
-
     stt_provider = STTFactory.create(event_bus, config.stt)
     llm_provider = LLMFactory.create(event_bus, config.llm)
     tts_provider = TTSFactory.create(event_bus, config.tts)
@@ -76,7 +74,7 @@ def main():
 
     # Database setup
     store = ConversationStore(DatabaseConfig())
-    dialogue_manager.set_store(store)
+    dialogue_manager = DialogueManager(event_bus, store)
     user_id = store.create_agent("user", "human")
     sam_id = store.create_agent("Sam", "llm")
 
