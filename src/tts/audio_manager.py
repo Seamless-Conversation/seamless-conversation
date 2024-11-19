@@ -100,7 +100,8 @@ class AudioPlayer:
             'original_text': self.context.original_text,
             'speech_finished': is_final,
             'word_timestamps': word_timestamps,
-            'timestamps_supported': bool(self.context.transcription)
+            'timestamps_supported': bool(self.context.transcription),
+            'type': 'response'
         }
         self.event.data['context'].update(context_update)
 
@@ -127,7 +128,7 @@ class AudioPlayer:
             data = self.wf.readframes(self.CHUNK_SIZE)
 
         if self.playing:
-            self.stop(True)
+            self.stop(False)
 
     def play(self, start_seconds: float = 0) -> float:
         """Start playing audio from specified position"""
@@ -152,6 +153,9 @@ class AudioPlayer:
         if self.stream and self.thread and self.thread.is_alive():
             self.playing = False
             self.context.pause_position = time.time() - self.context.start_time
+
+            if interrupted:
+                return
 
             self._publish_snippet(is_final=True)
 
@@ -226,7 +230,7 @@ class AudioManager:
     def stop_player(self, event: Event) -> None:
         """Stop playback for a specific player"""
         if event.group_id in self.players and event.speaker_id in self.players[event.group_id]:
-            self.players[event.group_id][event.speaker_id].stop(False)
+            self.players[event.group_id][event.speaker_id].stop(True)
 
     def close(self) -> None:
         """Clean up all players"""

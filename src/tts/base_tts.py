@@ -28,7 +28,7 @@ class BaseTTS(BaseComponent):
         self._queue.put(event)
 
     def _handle_speech_interruption(self, event: Event) -> None:
-        self.audio_manager.stop_player()
+        self.audio_manager.stop_player(event)
 
     def _run_worker(self) -> None:
         while self.running:
