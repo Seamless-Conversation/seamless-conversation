@@ -22,19 +22,18 @@ class DialogueState:
     current_speaker: Optional[str] = None
     pending_responses: List[str] = field(default_factory=list)
     context: Dict[str, Any] = field(default_factory=dict)
-    last_interruption_time: float = 0
     current_speech_start: float = 0
     speaking_members: Set[str] = field(default_factory=set)
     current_transcription: List[tuple[str, float]] = field(default_factory=list)
 
 class DialogueManager:
-    def __init__(self, event_bus: EventBus):
+    def __init__(self, event_bus: EventBus, store: ConversationStore):
         self.event_bus = event_bus
         self.groups: Dict[str, ConversationGroup] = {}
         self.dialogue_states: Dict[str, DialogueState] = {}
         self.lock = threading.Lock()
         self._subscribe_to_events()
-        self.store: ConversationStore = None
+        self.store = store
 
     def _subscribe_to_events(self) -> None:
         """Subscribe to all events that the DialogueManager needs to handle"""
@@ -48,9 +47,6 @@ class DialogueManager:
 
         for event_type, handler in subscriptions.items():
             self.event_bus.subscribe(event_type, handler)
-
-    def set_store(self, store: ConversationStore) -> None:
-        self.store = store
 
     def create_group(self, group_id: str) -> ConversationGroup:
         """Create a new conversation group"""
@@ -89,7 +85,6 @@ class DialogueManager:
                 'interrupters': [s for s in speaking_members if s != state.current_speaker],
                 'interruption_time': event.timestamp
             })
-            state.last_interruption_time = event.timestamp
 
         return interruption_context
 
@@ -116,9 +111,6 @@ class DialogueManager:
 
             # Handle interruption detection
             interruption_context = self._detect_interruption(state, event, state.speaking_members)
-            # logger.debug(f"Speaking members: {state.speaking_members}")
-
-            # Update event context
             event.data.setdefault('context', {})
             event.data['context'].update({
                 'speech_type': SpeechType.USER if event.speaker_id == "user" else SpeechType.LLM,
