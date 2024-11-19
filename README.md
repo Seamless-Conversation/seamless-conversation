@@ -43,7 +43,7 @@ python3.10 -m venv seampyconvo
 ```
 Activate the python environment:
 ```
-seampyconvo/bin/activate
+source seampyconvo/bin/activate
 ```
 Install all required Python packages using pip.
 ```
@@ -67,7 +67,12 @@ Install PortAudio
     sudo apt-get install libportaudio2
     ```
 
-### 3. Set up environment variables (Optional)
+### 3. Setup databse
+```
+python setup_database.py
+```
+
+### 4. Set up environment variables (Optional)
 To make use of APIs either add your key to the config.yaml file:
 ```
 api_key: YOUR_API_KEY
@@ -77,7 +82,7 @@ api_key: YOUR_API_KEY
 export OPENAI_API_KEY=your_openai_api_key
 ```
 
-### 4. Download Local Model (Optional)
+### 5. Download Local Model (Optional)
 ```
 python download_vosk_model.py
 ```

@@ -27,6 +27,9 @@ class BaseSTT(BaseComponent):
         """Process audio data into text - implemented by providers"""
         pass
 
+    def set_group(self, group_id: str) -> None:
+        self.group = group_id
+
     def _handle_user_update_data(self, event: Event) -> None:
         self.user = event.speaker_id
         self.user = event.group_id
@@ -52,15 +55,12 @@ class BaseSTT(BaseComponent):
                         self.event_bus.publish(Event(
                             type=EventType.STT_TRANSCRIPTION_READY,
                             speaker_id= self.user,
-                            group_id= "group_a",
+                            group_id= self.group,
                             timestamp=time.time(),
                             data={'text': text}
                         ))
 
             except queue.Empty:
-                continue
-            except Exception as e:
-                logger.error(f"Error processing audio block: {str(e)}")
                 continue
 
         self.audio_input.stop()

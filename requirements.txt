@@ -6,3 +6,7 @@ numpy
 pydub
 pyaudio
 coqui-tts
+SQLAlchemy
+psycopg2-binary
+alembic
+python-dotenv

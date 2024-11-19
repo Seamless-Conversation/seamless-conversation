@@ -12,6 +12,8 @@ from src.tts.factory import TTSFactory
 from src.conversation_group import Speaker
 from src.event.eventbus import EventBus, Event
 from src.event.event_types import EventType
+from src.database.store import ConversationStore
+from src.database.config import DatabaseConfig
 
 DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 
@@ -69,12 +71,30 @@ def main():
     tts_provider = TTSFactory.create(event_bus, config.tts)
 
     # "Temporary" group. We want to init these based upon config/enviorment
-    group_a = dialogue_manager.create_group("group_a")
-    group_a.add_member(Speaker("user", event_bus))
-    ai = Speaker("Sam", event_bus) # example agent
+    # This is very confusing. We are updating groups both in Dialogue Manager and Database
+    # We need a new dataclass or something that Dialogue Manager and Database can share
 
-    ai.set_personality("ai_prompts/npc_personalities/npc_sam")
-    group_a.add_member(ai)
+    # Database setup
+    store = ConversationStore(DatabaseConfig())
+    dialogue_manager.set_store(store)
+    user_id = store.create_agent("user", "human")
+    sam_id = store.create_agent("Sam", "llm")
+
+    group_database_id = store.create_group(user_id)
+    store.join_conversation(group_database_id, user_id)
+    store.join_conversation(group_database_id, sam_id)
+
+    user = Speaker("user", event_bus, store, user_id)
+    sam = Speaker("Sam", event_bus, store, sam_id)
+
+    group_dm_1 = dialogue_manager.create_group(group_database_id)
+    group_dm_1.add_member(user)
+    group_dm_1.add_member(sam)
+
+    sam.set_system_prompts("ai_prompts/npc_personalities/npc_sam")
+
+    stt_provider.set_group(group_database_id)
+
 
     # Setup logging here, libs need to be imported
     # before we can filter for them.

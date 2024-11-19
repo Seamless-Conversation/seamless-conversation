@@ -11,6 +11,8 @@ from src.conversation_group import ConversationGroup
 from src.llm.llm_utils import load_prompt
 from src.speech import SpeechType
 from src.speaker_types import SpeakerState
+from src.database.store import ConversationStore
+from src.database.config import DatabaseConfig
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +34,7 @@ class DialogueManager:
         self.dialogue_states: Dict[str, DialogueState] = {}
         self.lock = threading.Lock()
         self._subscribe_to_events()
+        self.store: ConversationStore = None
 
     def _subscribe_to_events(self) -> None:
         """Subscribe to all events that the DialogueManager needs to handle"""
@@ -45,6 +48,9 @@ class DialogueManager:
 
         for event_type, handler in subscriptions.items():
             self.event_bus.subscribe(event_type, handler)
+
+    def set_store(self, store: ConversationStore) -> None:
+        self.store = store
 
     def create_group(self, group_id: str) -> ConversationGroup:
         """Create a new conversation group"""
@@ -123,6 +129,18 @@ class DialogueManager:
 
             logger.debug(f"Speech event spoken by {event.speaker_id} group {event.group_id} text {event.data['text']}")
 
+            # If it is the user, let's append syntax
+            if event.speaker_id == "user":
+                event.data['text'] = "User: " + event.data['text']
+            
+            # Store new speech event in database
+            self.store.store_message(
+                group_id=event.group_id,
+                sender_id=group.get_member(event.speaker_id).database_agent_id,
+                content=event.data['text'],
+                message_type=event.data['context']['type'] if event.speaker_id != "user" else "response"
+            )
+
             # Notify all LLM members of the group
             for member in group.get_members():
                 if member.speaker_id != "user":
@@ -138,9 +156,16 @@ class DialogueManager:
             logger.debug(f"  Response from llm for {event.speaker_id} group {event.group_id} type {event.data['context']['type']}")
             state = self.dialogue_states[event.group_id]
             speaker = self.groups[event.group_id].get_member(event.speaker_id)
+            group = self.groups[event.group_id]
 
             response_type = event.data['context'].get('type')
             if response_type == "decision":
+                self.store.store_message(
+                    group_id=event.group_id,
+                    sender_id=group.get_member(event.speaker_id).database_agent_id,
+                    content=event.data['text'],
+                    message_type=event.data['context']['type']
+                )
                 speaker.handle_llm(event)
             elif response_type == "response":
                 state.pending_responses.append(event.data['text'])
@@ -190,6 +215,7 @@ class DialogueManager:
 
         if state.pending_responses:
             response = state.pending_responses.pop(0)
+            response = self._clean_text_to_be_spoken(response, 20)
             self.event_bus.publish(Event(
                 type=EventType.TTS_START_SPEAKING,
                 speaker_id=speaker_id,
@@ -197,6 +223,17 @@ class DialogueManager:
                 timestamp=time.time(),
                 data={'text': response}
             ))
+
+    def _clean_text_to_be_spoken(self, input_string: str, n: int) -> str:
+        if not input_string:
+            return input_string
+
+        if ':' in input_string[:n]:
+            colon_index = input_string.find(':')
+            input_string = input_string[colon_index + 1:]
+        
+        return input_string.strip()
+
 
     def get_conversation_context(self, group_id: str) -> Dict[str, Any]:
         """Get the current conversation context for a group"""
