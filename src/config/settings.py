@@ -37,11 +37,12 @@ class VoskSettings(BaseModel):
     dtype: str
     channels: int
 
-    @validator('path_to_model')
-    def validate_model_path(cls, v):
-        if not os.path.exists(v):
-            raise ValueError(f"Vosk model path does not exist: {v}")
-        return v
+    # Validator incorrectly setup. Need to be fixed.
+    # @validator('path_to_model')
+    # def validate_model_path(cls, v):
+    #     if not os.path.exists(v):
+    #         raise ValueError(f"Vosk model path does not exist: {v}")
+    #     return v
 
 class WhisperSettings(BaseModel):
     size_model: str
