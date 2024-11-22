@@ -1,5 +1,4 @@
 import os
-from queue import Queue
 import time
 import argparse
 import logging
@@ -9,9 +8,7 @@ from src.dialogue_manager import DialogueManager
 from src.llm.factory import LLMFactory
 from src.stt.factory import STTFactory
 from src.tts.factory import TTSFactory
-from src.conversation_group import Speaker
-from src.event.eventbus import EventBus, Event
-from src.event.event_types import EventType
+from src.agents.agent import Agent
 from src.database.store import ConversationStore
 from src.database.config import DatabaseConfig
 
@@ -24,7 +21,6 @@ def parse_args():
     parser.add_argument('-stt', help='Set the speech to text model')
     parser.add_argument('-tts', help='Set the text to speech model')
     parser.add_argument('-llm', help='Set the large language model')
-    # parser.add_argument('-disablellmresponse', action='store_true', help='Disable the computation of the LLM response. Used for debugging and testing.', default=False)
 
     return parser.parse_args()
 
@@ -34,7 +30,7 @@ class ModuleFilter(logging.Filter):
 
 def setup_logging(override_log):
     if DEBUG or override_log:
-        logging.basicConfig(level=logging.DEBUG) 
+        logging.basicConfig(level=logging.DEBUG)
 
     if not override_log:
         return
@@ -52,11 +48,11 @@ def main():
 
     config = load_config("config.yaml")
 
-    if (args.llm):
+    if args.llm:
         config.llm.provider = args.llm
-    if (args.stt):
+    if args.stt:
         config.stt.provider = args.stt
-    if (args.tts):
+    if args.tts:
         config.tts.provider = args.tts
 
     # Enable initial logging, we need a better solution here.
@@ -82,8 +78,8 @@ def main():
     store.join_conversation(group_id, user_id)
     store.join_conversation(group_id, sam_id)
 
-    user = Speaker(user_id, event_bus, store, True)
-    sam = Speaker(sam_id, event_bus, store)
+    user = Agent(user_id, event_bus, store, True)
+    sam = Agent(sam_id, event_bus, store)
 
     group_dm_1 = dialogue_manager.create_group(group_id)
     group_dm_1.add_member(user)
@@ -91,8 +87,8 @@ def main():
 
     sam.set_system_prompts("ai_prompts/npc_personalities/npc_sam")
 
-    stt_provider.set_group(group_id)
-    stt_provider.set_id(user_id)
+    stt_provider.set_group_id(group_id)
+    stt_provider.set_agent_id(user_id)
 
 
     # Setup logging here, libs need to be imported

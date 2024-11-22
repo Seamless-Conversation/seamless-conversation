@@ -5,8 +5,8 @@ from enum import Enum
 # importing speech.py. Did not work.
 
 class SpeakerState(Enum):
-    SPEAKING = 1
-    PENDING_DECISION = 2
-    PENDING_RESPONSE = 3
-    INTERRUPTED = 4
-    WAITING = 5
+    SPEAKING = "speaking"
+    PENDING_DECISION = "pending_decision"
+    PENDING_RESPONSE = "pending_response"
+    INTERRUPTED = "interrupted"
+    WAITING = "waiting"

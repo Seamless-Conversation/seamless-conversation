@@ -1,4 +1,4 @@
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 import queue
 import time
 import logging
@@ -18,7 +18,6 @@ class BaseLLM(BaseComponent):
     @abstractmethod
     def generate_response(self, input_text: str) -> str:
         """Generate response from input - implemented by providers"""
-        pass
 
     def _handle_input(self, event: Event) -> None:
         self._queue.put(event)
@@ -31,12 +30,12 @@ class BaseLLM(BaseComponent):
                 context = event.data.get('context', {})
 
                 response = self.generate_response(input_text)
-                # logger.debug(input_text)
-                logger.debug(f" LLM response type {event.data['context']['type']}: \"{response[0:20]}\"")
+
+                logger.debug(" LLM response type %s: \"%s\"", event.data['context']['type'], response[0:20])
 
                 self.event_bus.publish(Event(
                     type=EventType.LLM_RESPONSE_READY,
-                    speaker_id=event.speaker_id,
+                    agent_id=event.agent_id,
                     group_id=event.group_id,
                     timestamp=time.time(),
                     data={'text': response,

@@ -1,12 +1,12 @@
 from dataclasses import dataclass
-from pydub import AudioSegment
 import wave
-import pyaudio
 import threading
 import io
 import time
 import logging
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Optional, Tuple
+import pyaudio
+from pydub import AudioSegment
 from src.event.eventbus import EventBus, Event
 from src.event.event_types import EventType
 
@@ -105,7 +105,7 @@ class AudioPlayer:
 
         self.event_bus.publish(Event(
             type=event_type,
-            speaker_id=self.event.speaker_id,
+            agent_id=self.event.agent_id,
             group_id=self.event.group_id,
             timestamp=time.time(),
             data=self.event.data
@@ -175,7 +175,7 @@ class AudioPlayer:
         self.pyaudio.terminate()
 
 class AudioManager:
-    """Manages multiple audio players across different groups and speakers"""
+    """Manages multiple audio players across different groups and agents"""
     def __init__(self, event_bus: EventBus):
         self.event_bus = event_bus
         self.players: Dict[str, Dict[str, AudioPlayer]] = {}
@@ -198,28 +198,28 @@ class AudioManager:
         if event.group_id not in self.players:
             self.players[event.group_id] = {}
 
-        self.players[event.group_id][event.speaker_id] = player
+        self.players[event.group_id][event.agent_id] = player
         return player
 
     def _on_player_finished(self, event: Event, stop_time: float) -> None:
         """Callback for when a player finishes"""
-        if event.group_id in self.players and event.speaker_id in self.players[event.group_id]:
-            del self.players[event.group_id][event.speaker_id]
+        if event.group_id in self.players and event.agent_id in self.players[event.group_id]:
+            del self.players[event.group_id][event.agent_id]
 
             if not self.players[event.group_id]:
                 del self.players[event.group_id]
 
     def play_player(self, event: Event) -> None:
         """Start playback for a specific player"""
-        if event.group_id in self.players and event.speaker_id in self.players[event.group_id]:
-            player = self.players[event.group_id][event.speaker_id]
+        if event.group_id in self.players and event.agent_id in self.players[event.group_id]:
+            player = self.players[event.group_id][event.agent_id]
             start_time = player.play()
 
             event.data['context'] = {'time_started': start_time}
 
             self.event_bus.publish(Event(
                 type=EventType.SPEECH_STARTED,
-                speaker_id=event.speaker_id,
+                agent_id=event.agent_id,
                 group_id=event.group_id,
                 timestamp=time.time(),
                 data=event.data
@@ -227,8 +227,8 @@ class AudioManager:
 
     def stop_player(self, event: Event) -> None:
         """Stop playback for a specific player"""
-        if event.group_id in self.players and event.speaker_id in self.players[event.group_id]:
-            self.players[event.group_id][event.speaker_id].stop(True)
+        if event.group_id in self.players and event.agent_id in self.players[event.group_id]:
+            self.players[event.group_id][event.agent_id].stop(True)
 
     def close(self) -> None:
         """Clean up all players"""

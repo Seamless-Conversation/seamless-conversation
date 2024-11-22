@@ -1,20 +1,17 @@
-from src.event.event_types import EventType
-from dataclasses import dataclass
-from typing import Dict, List, Callable, Any
-from enum import Enum
 import threading
-import time
 import queue
-from concurrent.futures import ThreadPoolExecutor
-from typing import Optional
 import logging
+from dataclasses import dataclass
+from typing import Dict, List, Callable, Optional
+from concurrent.futures import ThreadPoolExecutor
+from src.event.event_types import EventType
 
 logger = logging.getLogger(__name__)
 
 @dataclass
 class Event:
     type: EventType
-    speaker_id: str
+    agent_id: str
     group_id: str
     timestamp: float
     data: dict
@@ -42,7 +39,7 @@ class EventBus:
             except queue.Empty:
                 continue
             except Exception as e:
-                logger.error(f"Error processing event: {e}")
+                logger.error("Error processing event: %s", e)
 
     def _dispatch_event(self, event: Event):
         """Dispatch a single event to all subscribers"""
@@ -55,7 +52,7 @@ class EventBus:
             try:
                 self._executor.submit(callback, event)
             except Exception as e:
-                logger.error(f"Error dispatching event to callback: {e}")
+                logger.error("Error dispatching event to callback: %s", e)
 
     def subscribe(self, event_type: EventType, callback: Callable[[Event], None]) -> None:
         """Subscribe to event"""
