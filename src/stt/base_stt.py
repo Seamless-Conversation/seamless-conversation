@@ -18,8 +18,8 @@ class BaseSTT(BaseComponent):
         super().__init__(event_bus)
         self.config = config
         self.audio_input: Optional[AudioInput] = None
-        self.user = "user"
-        self.group = "group_a"
+        self.user: str
+        self.group: str
         self.event_bus.subscribe(EventType.STT_USER_UPDATE_DATA, self._handle_user_update_data)
 
     @abstractmethod
@@ -29,10 +29,13 @@ class BaseSTT(BaseComponent):
 
     def set_group(self, group_id: str) -> None:
         self.group = group_id
+    
+    def set_id(self, speaker_id: str) -> None:
+        self.user = speaker_id
 
     def _handle_user_update_data(self, event: Event) -> None:
         self.user = event.speaker_id
-        self.user = event.group_id
+        self.group_id = event.group_id
 
     def _run_worker(self) -> None:
         self.audio_input = AudioInput(AudioConfig(
@@ -57,7 +60,10 @@ class BaseSTT(BaseComponent):
                             speaker_id= self.user,
                             group_id= self.group,
                             timestamp=time.time(),
-                            data={'text': text}
+                            data={
+                                'text': text,
+                                'context': {'type': 'response'}
+                                }
                         ))
 
             except queue.Empty:

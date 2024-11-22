@@ -12,13 +12,12 @@ class ConversationStore:
         Base.metadata.create_all(self.engine)
         self.Session = sessionmaker(bind=self.engine)
 
-    def create_agent(self, name: str, agent_type: str, capabilities: Dict[str, Any] = None) -> str:
+    def create_agent(self, name: str, capabilities: Dict[str, Any] = None) -> str:
         """Create a new agent"""
         session = self.Session()
         try:
             agent = Agent(
                 name=name,
-                type=agent_type,
                 capabilities=capabilities
             )
             session.add(agent)

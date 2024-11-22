@@ -9,7 +9,6 @@ import logging
 from typing import Dict, List, Optional, Tuple, Any
 from src.event.eventbus import EventBus, Event
 from src.event.event_types import EventType
-from src.speech import SpeechType
 
 logger = logging.getLogger(__name__)
 
@@ -96,7 +95,6 @@ class AudioPlayer:
             self.context.publish_snippet_time = current_time
 
         context_update = {
-            'speech_type': SpeechType.LLM,
             'original_text': self.context.original_text,
             'speech_finished': is_final,
             'word_timestamps': word_timestamps,

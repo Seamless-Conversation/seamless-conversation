@@ -9,7 +9,6 @@ from src.event.eventbus import EventBus, Event
 from src.event.event_types import EventType
 from src.conversation_group import ConversationGroup
 from src.llm.llm_utils import load_prompt
-from src.speech import SpeechType
 from src.speaker_types import SpeakerState
 from src.database.store import ConversationStore
 from src.database.config import DatabaseConfig
@@ -75,7 +74,8 @@ class DialogueManager:
         }
 
         # User is not part of SpeakerState, therefore we add them here
-        if event.speaker_id == "user":
+        possible_user = self.groups[event.group_id].get_member(event.speaker_id)
+        if possible_user and possible_user.is_user:
             speaking_members.add(event.speaker_id)
 
         # If there's a current speaker and others are speaking, it's an interruption
@@ -85,12 +85,10 @@ class DialogueManager:
                 'interrupters': [s for s in speaking_members if s != state.current_speaker],
                 'interruption_time': event.timestamp
             })
-
         return interruption_context
 
     def _handle_speech(self, event: Event) -> None:
         """Handle new transcription from spoken words"""
-        # logger.debug(f"Speech event spoken by {event.speaker_id} group {event.group_id} text {event.data['text']}")
         if event.group_id not in self.dialogue_states:
             logger.error(f"No dialogue state found for group {event.group_id}")
             return
@@ -113,7 +111,6 @@ class DialogueManager:
             interruption_context = self._detect_interruption(state, event, state.speaking_members)
             event.data.setdefault('context', {})
             event.data['context'].update({
-                'speech_type': SpeechType.USER if event.speaker_id == "user" else SpeechType.LLM,
                 'interruption': interruption_context,
                 'current_speaker': state.current_speaker,
                 'speaking_members': list(state.speaking_members)
@@ -122,20 +119,21 @@ class DialogueManager:
             logger.debug(f"Speech event spoken by {event.speaker_id} group {event.group_id} text {event.data['text']}")
 
             # If it is the user, let's append syntax
-            if event.speaker_id == "user":
+            possible_user = group.get_member(event.speaker_id)
+            if possible_user and possible_user.is_user == True:
                 event.data['text'] = "User: " + event.data['text']
             
             # Store new speech event in database
             self.store.store_message(
                 group_id=event.group_id,
-                sender_id=group.get_member(event.speaker_id).database_agent_id,
+                sender_id=event.speaker_id,
                 content=event.data['text'],
-                message_type=event.data['context']['type'] if event.speaker_id != "user" else "response"
+                message_type=event.data['context']['type']
             )
 
             # Notify all LLM members of the group
             for member in group.get_members():
-                if member.speaker_id != "user":
+                if not member.is_user:
                     # Don't notify speaker about their own completed speech
                     if event.speaker_id == member.speaker_id and event.data['context'].get('speech_finished'):
                         continue
@@ -154,7 +152,7 @@ class DialogueManager:
             if response_type == "decision":
                 self.store.store_message(
                     group_id=event.group_id,
-                    sender_id=group.get_member(event.speaker_id).database_agent_id,
+                    sender_id=event.speaker_id,
                     content=event.data['text'],
                     message_type=event.data['context']['type']
                 )

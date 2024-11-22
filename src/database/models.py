@@ -22,7 +22,6 @@ class Agent(Base):
 
     agent_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String, nullable=False)
-    type = Column(String)  # e.g., 'llm', 'human'
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     is_active = Column(Boolean, default=True)
     capabilities = Column(JSON)  # capabilities/configuration

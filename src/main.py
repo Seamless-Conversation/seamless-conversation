@@ -75,23 +75,24 @@ def main():
     # Database setup
     store = ConversationStore(DatabaseConfig())
     dialogue_manager = DialogueManager(event_bus, store)
-    user_id = store.create_agent("user", "human")
-    sam_id = store.create_agent("Sam", "llm")
+    user_id = store.create_agent("User")
+    sam_id = store.create_agent("Sam")
 
-    group_database_id = store.create_group(user_id)
-    store.join_conversation(group_database_id, user_id)
-    store.join_conversation(group_database_id, sam_id)
+    group_id = store.create_group(user_id)
+    store.join_conversation(group_id, user_id)
+    store.join_conversation(group_id, sam_id)
 
-    user = Speaker("user", event_bus, store, user_id)
-    sam = Speaker("Sam", event_bus, store, sam_id)
+    user = Speaker(user_id, event_bus, store, True)
+    sam = Speaker(sam_id, event_bus, store)
 
-    group_dm_1 = dialogue_manager.create_group(group_database_id)
+    group_dm_1 = dialogue_manager.create_group(group_id)
     group_dm_1.add_member(user)
     group_dm_1.add_member(sam)
 
     sam.set_system_prompts("ai_prompts/npc_personalities/npc_sam")
 
-    stt_provider.set_group(group_database_id)
+    stt_provider.set_group(group_id)
+    stt_provider.set_id(user_id)
 
 
     # Setup logging here, libs need to be imported

@@ -13,19 +13,18 @@ import time
 logger = logging.getLogger(__name__)
 
 class Speaker:
-    def __init__(self, speaker_id: str, event_bus: EventBus, conversation_store: ConversationStore, database_agent_id: str):
+    def __init__(self, speaker_id: str, event_bus: EventBus, conversation_store: ConversationStore, is_user = False):
         self.speaker_id = speaker_id
-        self.database_agent_id  = database_agent_id
         self.group_id: None
         
         self._event_bus = event_bus
         self._lock = threading.Lock()
         self.state = SpeakerState.WAITING
 
+        self.is_user = is_user
+
         self.conversation_store = conversation_store
-
-        self.personality: str = ""
-
+        self.personality: str
         self.decision_prompt: List[Dict[str, str]] = []
         self.response_prompt: List[Dict[str, str]] = []
 
@@ -66,7 +65,7 @@ class Speaker:
 
         history = self.conversation_store.get_conversation_history(
             group_id=event.group_id,
-            agent_id=self.database_agent_id,
+            agent_id=self.speaker_id,
             include_decisions=True,
             limit=500
         )
@@ -91,7 +90,7 @@ class Speaker:
 
         history = self.conversation_store.get_conversation_history(
             group_id=event.group_id,
-            agent_id=self.database_agent_id,
+            agent_id=self.speaker_id,
             include_decisions=True,
             limit=500
         )
@@ -147,7 +146,7 @@ class Speaker:
 
             history = self.conversation_store.get_conversation_history(
                 group_id=event.group_id,
-                agent_id=self.database_agent_id,
+                agent_id=self.speaker_id,
                 include_decisions=False,
                 limit=500
             )
@@ -170,7 +169,7 @@ class Speaker:
         history_to_return = []
 
         for msg in history:
-            assistant_role = "assistant" if msg['sender_id'] == self.database_agent_id else "user"
+            assistant_role = "assistant" if msg['sender_id'] == self.speaker_id else "user"
 
             history_to_return.append({"role": assistant_role, "content": msg['content']})
 
