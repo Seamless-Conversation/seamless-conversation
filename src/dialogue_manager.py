@@ -55,38 +55,6 @@ class DialogueManager:
             self.dialogue_states[group_id] = DialogueState()
             return group
 
-    def _process_transcription(self, state: DialogueState, timestamps: List[tuple[str, float]], current_time: float) -> str:
-        """Process word timestamps to get the completed sentence up to current time"""
-        completed_words = []
-        for word, timestamp in timestamps:
-            if timestamp <= current_time:
-                completed_words.append(word)
-            else:
-                break
-        return ' '.join(completed_words)
-
-    def _detect_interruption(self, state: DialogueState, event: Event, speaking_members: Set[str]) -> Dict[str, Any]:
-        """Detect and handle interruptions in the conversation"""
-        interruption_context = {
-            'interrupted': None,
-            'interrupters': [],
-            'interruption_time': None
-        }
-
-        # User is not part of SpeakerState, therefore we add them here
-        possible_user = self.groups[event.group_id].get_member(event.speaker_id)
-        if possible_user and possible_user.is_user:
-            speaking_members.add(event.speaker_id)
-
-        # If there's a current speaker and others are speaking, it's an interruption
-        if state.current_speaker and len(speaking_members) > 1:
-            interruption_context.update({
-                'interrupted': state.current_speaker,
-                'interrupters': [s for s in speaking_members if s != state.current_speaker],
-                'interruption_time': event.timestamp
-            })
-        return interruption_context
-
     def _handle_speech(self, event: Event) -> None:
         """Handle new transcription from spoken words"""
         if event.group_id not in self.dialogue_states:
@@ -199,6 +167,38 @@ class DialogueManager:
             # in the future
             event.data.setdefault('context', {})
 
+    def _process_transcription(self, state: DialogueState, timestamps: List[tuple[str, float]], current_time: float) -> str:
+        """Process word timestamps to get the completed sentence up to current time"""
+        completed_words = []
+        for word, timestamp in timestamps:
+            if timestamp <= current_time:
+                completed_words.append(word)
+            else:
+                break
+        return ' '.join(completed_words)
+
+    def _detect_interruption(self, state: DialogueState, event: Event, speaking_members: Set[str]) -> Dict[str, Any]:
+        """Detect and handle interruptions in the conversation"""
+        interruption_context = {
+            'interrupted': None,
+            'interrupters': [],
+            'interruption_time': None
+        }
+
+        # User is not part of SpeakerState, therefore we add them here
+        possible_user = self.groups[event.group_id].get_member(event.speaker_id)
+        if possible_user and possible_user.is_user:
+            speaking_members.add(event.speaker_id)
+
+        # If there's a current speaker and others are speaking, it's an interruption
+        if state.current_speaker and len(speaking_members) > 1:
+            interruption_context.update({
+                'interrupted': state.current_speaker,
+                'interrupters': [s for s in speaking_members if s != state.current_speaker],
+                'interruption_time': event.timestamp
+            })
+        return interruption_context
+
     def _speak_next_response(self, group_id: str, speaker_id: str) -> None:
         """Trigger TTS for the next pending response"""
         state = self.dialogue_states[group_id]
@@ -223,7 +223,6 @@ class DialogueManager:
             input_string = input_string[colon_index + 1:]
         
         return input_string.strip()
-
 
     def get_conversation_context(self, group_id: str) -> Dict[str, Any]:
         """Get the current conversation context for a group"""
