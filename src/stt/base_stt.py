@@ -21,6 +21,8 @@ class BaseSTT(BaseComponent):
         self.agent_id: str
         self.group_id: str
         self.event_bus.subscribe(EventType.STT_USER_UPDATE_DATA, self._handle_user_update_data)
+        self.send_eoi = False
+        self.time_since_last_eoi = 0
 
     @abstractmethod
     def process_audio(self, audio_data: bytes) -> str:
@@ -33,6 +35,21 @@ class BaseSTT(BaseComponent):
     def set_agent_id(self, agent_id: str) -> None:
         """Set the user's id"""
         self.agent_id = agent_id
+
+    def _send_eoi(self) -> None:
+        """Publish end of input to event bus"""
+        if self.send_eoi and time.time()-self.time_since_last_eoi > 2:
+            self.send_eoi = False
+            self.event_bus.publish(Event(
+                type=EventType.STT_TRANSCRIPTION_READY,
+                agent_id=self.agent_id,
+                group_id=self.group_id,
+                timestamp=time.time(),
+                data={
+                    'text': "[EOI]",
+                    'context': {'type': 'response'}
+                }
+            ))
 
     def _handle_user_update_data(self, event: Event) -> None:
         self.agent_id = event.agent_id
@@ -49,12 +66,15 @@ class BaseSTT(BaseComponent):
         self.audio_input.start()
 
         while self.running:
+            self._send_eoi()
             try:
                 audio_data = self.audio_input.get_audio_block(0.1)
                 # Check if audio_data exists and has content
                 if audio_data is not None and isinstance(audio_data, np.ndarray) and audio_data.size > 0:
                     text = self.process_audio(audio_data)
                     if text:
+                        self.time_since_last_eoi = time.time()
+                        self.send_eoi = True
                         logger.debug(text)
                         self.event_bus.publish(Event(
                             type=EventType.STT_TRANSCRIPTION_READY,
