@@ -9,8 +9,7 @@ from src.llm.factory import LLMFactory
 from src.stt.factory import STTFactory
 from src.tts.factory import TTSFactory
 from src.agents.agent import Agent
-from src.database.store import ConversationStore
-from src.database.config import DatabaseConfig
+from src.database.session_manager import SessionManager
 
 DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 
@@ -39,7 +38,8 @@ def setup_logging(override_log):
     filter_module = ModuleFilter()
     root_logger.addFilter(filter_module)
 
-    for logger_name in logging.root.manager.loggerDict:
+    logger_names = list(logging.Logger.manager.loggerDict.keys())
+    for logger_name in logger_names:
         logger = logging.getLogger(logger_name)
         logger.addFilter(filter_module)
 
@@ -69,14 +69,25 @@ def main():
     # We need a new dataclass or something that Dialogue Manager and Database can share
 
     # Database setup
-    store = ConversationStore(DatabaseConfig())
-    dialogue_manager = DialogueManager(event_bus, store)
-    user_id = store.create_agent("User")
-    sam_id = store.create_agent("Sam")
+    store = SessionManager()
 
-    group_id = store.create_group(user_id)
-    store.join_conversation(group_id, user_id)
-    store.join_conversation(group_id, sam_id)
+    store.set_application("App", "Example")
+
+    store.set_save("Root")
+
+    user_id = store.create_agent("User", external_application_id="00002003")
+    sam_id = store.create_agent("Sam", external_application_id="00010004")
+
+    event_id = store.create_and_store_event(
+        user_id,
+        [(user_id, "hear"), (sam_id, "hear")],
+        "conversation"
+    )
+
+    group_id = store.create_conversation_group(event_id)
+
+    # Dialogue Manager setup
+    dialogue_manager = DialogueManager(event_bus, store)
 
     user = Agent(user_id, event_bus, store, True)
     sam = Agent(sam_id, event_bus, store)

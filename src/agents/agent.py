@@ -1,25 +1,26 @@
 import threading
 import logging
 import time
+from uuid import UUID
 from typing import Dict, List, Any, Optional
 from src.event.eventbus import EventBus, Event
 from src.event.event_types import EventType
 from src.llm.llm_utils import load_prompt
 from src.agents.speaker_types import SpeakerState
-from src.database.store import ConversationStore
+from src.database.session_manager import SessionManager
 
 logger = logging.getLogger(__name__)
 
 class Agent:
-    def __init__(self, agent_id: str, event_bus: EventBus, conversation_store: ConversationStore, is_user: bool = False):
-        self.agent_id: str = agent_id
+    def __init__(self, agent_id: UUID, event_bus: EventBus, store: SessionManager, is_user: bool = False):
+        self.agent_id: UUID = agent_id
         self.group_id: Optional[str] = None
         self.is_user: bool = is_user
 
         self._event_bus: EventBus = event_bus
         self._lock: threading.Lock = threading.Lock()
         self.state: SpeakerState = SpeakerState.WAITING
-        self._conversation_store: ConversationStore = conversation_store
+        self.store: SessionManager = store
 
         self._personality: Optional[str] = None
         self._decision_prompt: List[Dict[str, str]] = []
@@ -70,12 +71,7 @@ class Agent:
 
     def _request_llm_decision(self, event: Event, include_interruption: bool = False) -> None:
         """Make LLM request for decision making"""
-        history = self._conversation_store.get_conversation_history(
-            group_id=event.group_id,
-            agent_id=self.agent_id,
-            include_decisions=True,
-            limit=500
-        )
+        history = self.store.get_messages(event, ["decision", "response"])
 
         context_data = {'type': 'decision'}
         if include_interruption:
@@ -137,12 +133,7 @@ class Agent:
 
     def _request_response_generation(self, event: Event) -> None:
         """Request response generation from LLM"""
-        history = self._conversation_store.get_conversation_history(
-            group_id=event.group_id,
-            agent_id=self.agent_id,
-            include_decisions=False,
-            limit=500
-        )
+        history = self.store.get_messages(event, ["response"])
 
         logger.debug("Agent %s requesting response generation. State: %s", self.agent_id, self.state)
         self._event_bus.publish(Event(
@@ -169,8 +160,9 @@ class Agent:
     @staticmethod
     def _format_messages(history: List[Dict[str, Any]], agent_id: str) -> List[Dict[str, str]]:
         """Formats conversation history into chat message format"""
+        logger.debug(history)
         formatted_messages = []
         for msg in history:
-            role = "assistant" if msg['sender_id'] == agent_id else "user"
+            role = "assistant" if msg['source_agent_id'] == agent_id else "user"
             formatted_messages.append({"role": role, "content": msg['content']})
         return formatted_messages

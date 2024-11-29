@@ -3,39 +3,39 @@ import time
 import logging
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Set, Any, Callable
+from uuid import UUID
 from src.event.eventbus import EventBus, Event
 from src.event.event_types import EventType
 from src.agents.conversation_group import ConversationGroup
 from src.agents.agent import Agent
-from src.database.store import ConversationStore
+from src.database.session_manager import SessionManager
 
 logger = logging.getLogger(__name__)
 
 @dataclass
 class DialogueState:
     """Represents the current state of a conversation"""
-    current_speaker: Optional[str] = None
+    current_speaker: Optional[UUID] = None
     pending_responses: List[str] = field(default_factory=list)
     context: Dict[str, Any] = field(default_factory=dict)
     current_speech_start: float = 0
-    speaking_members: Set[str] = field(default_factory=set)
-    current_transcription: List[tuple[str, float]] = field(default_factory=list)
+    speaking_members: Set[UUID] = field(default_factory=set)
 
     def is_interrupted(self) -> bool:
         """Check if there's an interruption in the conversation"""
         return bool(self.current_speaker and len(self.speaking_members) > 1)
 
-    def get_interrupters(self) -> List[str]:
+    def get_interrupters(self) -> List[UUID]:
         """Get list of speakers interrupting the current agent"""
         if not self.current_speaker:
             return []
         return [s for s in self.speaking_members if s != self.current_speaker]
 
 class DialogueManager:
-    def __init__(self, event_bus: EventBus, store: ConversationStore):
+    def __init__(self, event_bus: EventBus, store: SessionManager):
         self.event_bus = event_bus
-        self.groups: Dict[str, ConversationGroup] = {}
-        self.dialogue_states: Dict[str, DialogueState] = {}
+        self.groups: Dict[UUID, ConversationGroup] = {}
+        self.dialogue_states: Dict[UUID, DialogueState] = {}
         self.lock = threading.Lock()
         self.store = store
         self._init_event_subscriptions()
@@ -53,7 +53,7 @@ class DialogueManager:
         for event_type, handler in event_handlers.items():
             self.event_bus.subscribe(event_type, handler)
 
-    def create_group(self, group_id: str) -> ConversationGroup:
+    def create_group(self, group_id: UUID) -> ConversationGroup:
         """Create and initialize a new conversation group"""
         with self.lock:
             group = ConversationGroup(group_id)
@@ -61,7 +61,7 @@ class DialogueManager:
             self.dialogue_states[group_id] = DialogueState()
             return group
 
-    def _get_state_and_group(self, group_id: str) -> (DialogueState, ConversationGroup):
+    def _get_state_and_group(self, group_id: UUID) -> (DialogueState, ConversationGroup):
         """Get state and group objects, raising if not found"""
         if group_id not in self.dialogue_states:
             raise KeyError(f"No dialogue state found for group {group_id}")
@@ -106,11 +106,11 @@ class DialogueManager:
 
         event.data.setdefault('context', {}).update(self._create_interruption_context(state, event))
 
+        group_member_ids = self.groups[event.group_id].get_member_ids()
+        agents = [(member, "hear") for member in group_member_ids]
         self.store.store_message(
-            group_id=event.group_id,
-            sender_id=event.agent_id,
-            content=event.data['text'],
-            message_type=event.data['context']['type']
+            event=event,
+            agents=agents
         )
 
     def _create_interruption_context(self, state: DialogueState, event: Event) -> Dict[str, Any]:
@@ -157,10 +157,8 @@ class DialogueManager:
     def _handle_decision_response(self, event: Event, agent: Agent) -> None:
         """Handle a decision type response from LLM"""
         self.store.store_message(
-            group_id=event.group_id,
-            sender_id=event.agent_id,
-            content=event.data['text'],
-            message_type=event.data['context']['type']
+            event,
+            [(event.agent_id, "hear")]
         )
         agent.handle_llm(event)
 
@@ -196,7 +194,7 @@ class DialogueManager:
             state.speaking_members.discard(event.agent_id)
             agent.reset_pending()
 
-    def _speak_next_response(self, group_id: str, agent_id: str) -> None:
+    def _speak_next_response(self, group_id: UUID, agent_id: UUID) -> None:
         """Trigger TTS for the next pending response"""
         state = self.dialogue_states[group_id]
 

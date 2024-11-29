@@ -4,6 +4,7 @@ import logging
 from dataclasses import dataclass
 from typing import Dict, List, Callable, Optional
 from concurrent.futures import ThreadPoolExecutor
+from uuid import UUID
 from src.event.event_types import EventType
 
 logger = logging.getLogger(__name__)
@@ -11,8 +12,8 @@ logger = logging.getLogger(__name__)
 @dataclass
 class Event:
     type: EventType
-    agent_id: str
-    group_id: str
+    agent_id: UUID
+    group_id: UUID
     timestamp: float
     data: dict
 
