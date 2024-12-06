@@ -1,18 +1,25 @@
-# Speech to text
-models/*
-
 # Python
 __pycache__/
 
-# MacOS
+# Distribution / packaging
+.Python
+build/
+dist/
+*.egg-info/
+
+# IDE
+.idea/
+.vscode/
+
+# System files
 .DS_Store
-
-# IntelliJ
-.idea
-
-# Put stuff here you wanna test with
-temp/
-test_output/
 
 # Virtual python venv
 seampyconvo/
+
+# Downloaded models
+models/*
+
+# Temporary folders for development
+temp/
+test_output/

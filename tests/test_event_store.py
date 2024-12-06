@@ -1,6 +1,6 @@
 import unittest
-from src.database.config import DatabaseConfig
-from src.database.event_store import EventStore
+from seamlessconv.database.config import DatabaseConfig
+from seamlessconv.database.event_store import EventStore
 
 class TestEventStore(unittest.TestCase):
     """

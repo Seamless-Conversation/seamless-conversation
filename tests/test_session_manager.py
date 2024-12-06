@@ -1,6 +1,6 @@
 import unittest
-from src.database.session_manager import SessionManager
-from src.event.eventbus import Event, EventType
+from seamlessconv.database.session_manager import SessionManager
+from seamlessconv.event.eventbus import Event, EventType
 
 class TestSessionManager(unittest.TestCase):
     """
