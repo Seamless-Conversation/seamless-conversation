@@ -206,6 +206,7 @@ class DialogueManager:
 
     def _handle_speech_ended(self, event: Event) -> None:
         """Handle when a agent stops speaking"""
+        self._append_eoi(event)
         self._handle_speech(event)
         with self.lock:
             state, group = self._get_state_and_group(event.group_id)
@@ -216,6 +217,11 @@ class DialogueManager:
 
             state.speaking_members.discard(event.agent_id)
             agent.reset_pending()
+
+    def _append_eoi(self, event: Event) -> None:
+        """Appends [EOI] to event data if it is missing"""
+        if event.data['text'][-5:] != "[EOI]":
+            event.data['text'] += " [EOI]"
 
     def _speak_next_response(self, group_id: UUID, agent_id: UUID) -> None:
         """Trigger TTS for the next pending response"""
