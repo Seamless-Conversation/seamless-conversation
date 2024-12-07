@@ -76,6 +76,8 @@ class DialogueManager:
             return
 
         with self.lock:
+            if self._cancel_eoi_sending(state, group.get_member(event.agent_id), event):
+                return
             self._update_speaking_state(state, group, event)
             self._process_speech_event(state, group, event)
             self._notify_llm_members(group, event)
@@ -122,6 +124,17 @@ class DialogueManager:
             event=event,
             agents=agents
         )
+
+    def _cancel_eoi_sending(self, state: DialogueState, agent: Agent, event: Event) -> bool:
+        """If user got interrupted, do not notify agents of their EOI"""
+        if not agent.is_user or not state.is_interrupted():
+            return False
+
+        if event.data['text'] == "[EOI]":
+            logger.debug("Cancelled EOI")
+            return True
+
+        return False
 
     def _create_interruption_context(self, state: DialogueState, event: Event) -> Dict[str, Any]:
         """Create context information about any interruptions"""
