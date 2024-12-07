@@ -1,9 +1,9 @@
 from dataclasses import dataclass
-from typing import Callable, Optional
-import sounddevice as sd
+from typing import Optional
 import threading
 import queue
 import logging
+import sounddevice as sd
 import numpy as np
 
 logger = logging.getLogger(__name__)
@@ -25,10 +25,16 @@ class AudioInput:
         self._running = False
         self._lock = threading.Lock()
 
-    def _audio_callback(self, indata: np.ndarray, frames: int, time: dict, status: Optional[str]) -> None:
+    def _audio_callback(
+        self,
+        indata: np.ndarray,
+        frames: int,
+        time: dict,
+        status: Optional[str]
+    ) -> None:
         """Callback for the sounddevice input stream"""
         if status:
-            logger.warning(f"Audio callback status: {status}")
+            logger.warning("Audio callback status: %s", status)
         self.input_queue.put((indata.copy()))
 
     def start(self) -> None:

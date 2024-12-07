@@ -1,8 +1,8 @@
-from ..config.settings import LLMConfig
+import os
+from seamlessconv.config.settings import LLMConfig
+from seamlessconv.event.eventbus import EventBus
 from .providers.openai_provider import OpenAIProvider
 from .providers.llama_provider import LlamaProvider
-from seamlessconv.event.eventbus import EventBus
-import os
 
 class LLMFactory:
     @staticmethod

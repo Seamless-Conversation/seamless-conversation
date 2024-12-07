@@ -1,12 +1,8 @@
 from abc import ABC, abstractmethod
-from enum import Enum
-from typing import Optional, Union
+from typing import Optional
 import threading
-import multiprocessing
 import queue
-import time
 import logging
-from dataclasses import dataclass
 from seamlessconv.event.eventbus import EventBus
 
 logger = logging.getLogger(__name__)
@@ -37,4 +33,3 @@ class BaseComponent(ABC):
     @abstractmethod
     def _run_worker(self) -> None:
         """Main thread loop - implemented by subclasses"""
-        pass

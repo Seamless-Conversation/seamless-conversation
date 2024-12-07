@@ -1,11 +1,13 @@
-from pydantic import BaseModel, Field, validator
 from typing import Literal, Optional
-import os
+from pydantic import BaseModel, Field, validator
 
-def configProviderValidation(cls, v, values, name: str):
-    if values.get('provider') == name.lower:
+# Validator needs cls to be the first argument, we supress pylint here
+# pylint: disable=no-self-argument,missing-function-docstring,missing-class-docstring
+
+def config_provider_validation(cls, v, values, name: str):
+    if values.get('provider') == name.lower():
         if v is None:
-            raise ValueError(f"{name} configuration required when provider is '{name.lower}'")
+            raise ValueError(f"{name} configuration required when provider is '{name.lower()}'")
     return v
 
 class OpenAISettings(BaseModel):
@@ -24,11 +26,11 @@ class LLMConfig(BaseModel):
 
     @validator('openai')
     def validate_openai_config(cls, v, values):
-        return configProviderValidation(cls, v, values, "OpenAI")
+        return config_provider_validation(cls, v, values, "OpenAI")
 
     @validator('llama')
     def validate_llama_config(cls, v, values):
-        return configProviderValidation(cls, v, values, "OpenAI")
+        return config_provider_validation(cls, v, values, "llama")
 
 
 class VoskSettings(BaseModel):
@@ -61,11 +63,11 @@ class STTConfig(BaseModel):
 
     @validator('vosk')
     def validate_vosk_config(cls, v, values):
-        return configProviderValidation(cls, v, values, "OpenAI")
+        return config_provider_validation(cls, v, values, "Vosk")
 
     @validator('whisper')
     def validate_whisper_config(cls, v, values):
-        return configProviderValidation(cls, v, values, "OpenAI")
+        return config_provider_validation(cls, v, values, "Whisper")
 
 
 class ElevenlabsSettings(BaseModel):
@@ -84,9 +86,13 @@ class TTSConfig(BaseModel):
     elevenlabs: Optional[ElevenlabsSettings]
     xtts: Optional[XttsSettings]
 
+    @validator('xtts')
+    def validate_xtts_config(cls, v, values):
+        return config_provider_validation(cls, v, values, "Xtts")
+
     @validator('elevenlabs')
-    def validate_elevenlabs_confi(cls, v, values):
-        return configProviderValidation(cls, v, values, "Elevenlabs")
+    def validate_elevenlabs_config(cls, v, values):
+        return config_provider_validation(cls, v, values, "Elevenlabs")
 
 class AppConfig(BaseModel):
     llm: LLMConfig

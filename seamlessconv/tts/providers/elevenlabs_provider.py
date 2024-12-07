@@ -1,11 +1,10 @@
-from ..base_tts import BaseTTS
-from seamlessconv.config.settings import ElevenlabsSettings
-import requests
 import logging
-from typing import Dict, List, Union
-from seamlessconv.event.eventbus import EventBus
 import json
 import base64
+import requests
+from seamlessconv.config.settings import ElevenlabsSettings
+from seamlessconv.event.eventbus import EventBus
+from ..base_tts import BaseTTS
 
 logger = logging.getLogger(__name__)
 
@@ -38,14 +37,18 @@ class ElevenLabsTTSProvider(BaseTTS):
         )
 
         if response.status_code != 200:
-            logger.error(f"Error encountered, status: {response.status_code}, "f"content: {response.text}")
+            logger.error("Error encountered, status: %s, content: %s",
+            response.status_code, response.text)
 
         json_string = response.content.decode("utf-8")
         response_dict = json.loads(json_string)
 
         audio_bytes = base64.b64decode(response_dict["audio_base64"])
 
-        word_timestamps = self.process_word_timings(response_dict['alignment'].get('characters'), response_dict['alignment'].get('character_end_times_seconds'))
+        word_timestamps = self.process_word_timings(
+            response_dict['alignment'].get('characters'),
+            response_dict['alignment'].get('character_end_times_seconds')
+        )
 
         return (audio_bytes, word_timestamps)
 
@@ -65,7 +68,6 @@ class ElevenLabsTTSProvider(BaseTTS):
             raise ValueError("Characters and end times must have the same length")
 
         words = []
-        word_timings = []
         current_word = []
 
         for i, (char, time) in enumerate(zip(characters, end_times)):
@@ -91,9 +93,11 @@ class ElevenLabsTTSProvider(BaseTTS):
             response = requests.get("https://api.elevenlabs.io/v1/voices", headers=headers)
 
             if response.status_code != 200:
-                logger.error(f"Invalid API key. Status code: {response.status_code}, Response: {response.text}")
+                logger.error("Invalid API key. Status code: %s, Response: %s",
+                response.status_code,
+                response.text
+                )
                 raise RuntimeError(f"Failed to connect to Elevenlabs: {response.status_code} - {response.reason}")
         except Exception as e:
-            logger.error(f"Failed to connect to Elevenlabs: {e}")
+            logger.error("Failed to connect to Elevenlabs: %s", e)
             raise RuntimeError("Elevenlabs initialization failed") from e
-        pass

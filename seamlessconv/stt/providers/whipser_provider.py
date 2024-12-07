@@ -1,18 +1,16 @@
 import io
-import numpy as np
 import logging
-from faster_whisper import WhisperModel
+import wave
 from typing import Optional, List, Tuple
 from collections import deque
-import time
-import wave
 from dataclasses import dataclass
-from ...config.settings import WhisperSettings
-from ..base_stt import BaseSTT
+import numpy as np
+from faster_whisper import WhisperModel
+from seamlessconv.config.settings import WhisperSettings
 from seamlessconv.event.eventbus import EventBus
+from ..base_stt import BaseSTT
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class TranscriptionSegment:
@@ -25,13 +23,13 @@ class TranscriptionContext:
         self.segments: List[TranscriptionSegment] = []
         self.last_timestamp: float = 0
         self.max_history = max_history
-        
+
     def add_segment(self, text: str, start_time: float, end_time: float):
         self.segments.append(TranscriptionSegment(text, start_time, end_time))
         if len(self.segments) > self.max_history:
             self.segments.pop(0)
         self.last_timestamp = end_time
-            
+
     def get_recent_text(self) -> str:
         return " ".join(segment.text for segment in self.segments)
 
@@ -49,7 +47,7 @@ class AudioProcessor:
         self.audio_buffer = []
         self.chunk_buffer = []
         self.processed_duration = 0
-        self.chunk_samples = None 
+        self.chunk_samples = None
 
     def initialize_chunk_size(self, sample_rate: int):
         """Calculate chunk size based on desired duration and sample rate"""
@@ -73,7 +71,11 @@ class AudioProcessor:
         speech_duration = sum(1 for energy in energies if energy > self.energy_threshold) * 0.02
         return speech_duration >= self.min_speech_duration
 
-    def process_chunk(self, audio_chunk: np.ndarray, sample_rate: int) -> Tuple[Optional[np.ndarray], float, float]:
+    def process_chunk(
+        self,
+        audio_chunk: np.ndarray,
+        sample_rate: int
+    ) -> Tuple[Optional[np.ndarray], float, float]:
         """Process an audio chunk with fixed-time intervals"""
         if self.chunk_samples is None:
             self.initialize_chunk_size(sample_rate)
@@ -99,7 +101,12 @@ class AudioProcessor:
 
         return None, 0, 0
 
-    def create_wav_buffer(self, audio_data: np.ndarray, sample_rate: int, channels: int) -> io.BytesIO:
+    def create_wav_buffer(
+        self,
+        audio_data: np.ndarray,
+        sample_rate: int,
+        channels: int
+    ) -> io.BytesIO:
         wav_buffer = io.BytesIO()
         with wave.open(wav_buffer, 'wb') as wav_file:
             wav_file.setnchannels(channels)
@@ -112,7 +119,11 @@ class AudioProcessor:
 class WhisperProvider(BaseSTT):
     def __init__(self, event_bus: EventBus, config: WhisperSettings):
         super().__init__(event_bus, config)
-        self.audio_processor = AudioProcessor(config.energy_threshold, config.chunk_duration, config.min_duration)
+        self.audio_processor = AudioProcessor(
+            config.energy_threshold,
+            config.chunk_duration,
+            config.min_duration
+        )
 
         self.model = WhisperModel(
             config.size_model,

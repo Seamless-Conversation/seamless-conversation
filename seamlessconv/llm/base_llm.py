@@ -31,7 +31,10 @@ class BaseLLM(BaseComponent):
 
                 response = self.generate_response(input_text)
 
-                logger.debug(" LLM response type %s: \"%s\"", event.data['context']['type'], response[0:20])
+                logger.debug(
+                    " LLM response type %s: \"%s\"",
+                    event.data['context']['type'], response[0:20]
+                )
 
                 self.event_bus.publish(Event(
                     type=EventType.LLM_RESPONSE_READY,

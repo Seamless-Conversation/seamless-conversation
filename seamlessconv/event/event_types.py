@@ -1,5 +1,4 @@
 from enum import Enum
-from dataclasses import dataclass, field
 
 class EventType(Enum):
     SPEECH_STARTED = "speech_started"

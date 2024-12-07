@@ -1,10 +1,10 @@
-import vosk
 import json
 import os
 import logging
-from ..base_stt import BaseSTT
-from ...config.settings import VoskSettings
+import vosk
+from seamlessconv.config.settings import VoskSettings
 from seamlessconv.event.eventbus import EventBus
+from ..base_stt import BaseSTT
 
 logger = logging.getLogger(__name__)
 
@@ -20,8 +20,8 @@ class VoskProvider(BaseSTT):
         if not os.path.exists(path_to_model):
             raise FileNotFoundError(f"Model path '{path_to_model}' does not exist")
 
-    def process_audio(self, data) -> None:
-        if self.recognizer.AcceptWaveform(bytes(data)):
+    def process_audio(self, audio_data) -> None:
+        if self.recognizer.AcceptWaveform(bytes(audio_data)):
             result = self.recognizer.Result()
             text = json.loads(result)["text"]
             self.previous_partial = ""

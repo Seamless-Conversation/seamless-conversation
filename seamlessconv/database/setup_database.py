@@ -3,11 +3,11 @@ Automatically create the database required for Seamless Conversation.
 You need to have the postgresql service running.
 """
 import logging
-from models import Base
 import psycopg2
 from psycopg2 import sql
 from sqlalchemy import create_engine
 from seamlessconv.database.config import DatabaseConfig
+from .models import Base
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

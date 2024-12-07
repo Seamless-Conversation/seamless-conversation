@@ -80,7 +80,12 @@ class DialogueManager:
             self._process_speech_event(state, group, event)
             self._notify_llm_members(group, event)
 
-    def _update_speaking_state(self, state: DialogueState, group: ConversationGroup, event: Event) -> None:
+    def _update_speaking_state(
+        self,
+        state: DialogueState,
+        group: ConversationGroup,
+        event: Event
+    ) -> None:
         """Update the current speaking state based on group members"""
         state.speaking_members = {m.agent_id for m in group.get_speaking_members()}
 
@@ -89,7 +94,12 @@ class DialogueManager:
         if agent and agent.is_user:
             state.speaking_members.add(event.agent_id)
 
-    def _process_speech_event(self, state: DialogueState, group: ConversationGroup, event: Event) -> None:
+    def _process_speech_event(
+        self,
+        state: DialogueState,
+        group: ConversationGroup,
+        event: Event
+    ) -> None:
         """Process speech event including transcription and interruption detection"""
         context = event.data.get('context', {})
 

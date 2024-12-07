@@ -1,6 +1,5 @@
 import queue
 import logging
-import time
 from typing import Union, List, Dict, Tuple
 from abc import abstractmethod
 from seamlessconv.config.settings import TTSConfig
@@ -22,7 +21,6 @@ class BaseTTS(BaseComponent):
     @abstractmethod
     def synthesize_speech(self, text: str) -> Tuple[bytes, Dict[str, List[Union[str, float]]]]:
         """Convert text to audio data - implemented by providers"""
-        pass
 
     def _handle_speech_request(self, event: Event) -> None:
         self._queue.put(event)
